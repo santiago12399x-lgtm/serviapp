@@ -780,6 +780,50 @@ function mostrarRegistro() {
 // REGISTRAR USUARIO CON DJANGO
 // ================================
 
+const API_USUARIOS = "http://127.0.0.1:8000/api/usuarios/";
+
+function guardarTokens(tokens) {
+    sessionStorage.setItem("serviappAccessToken", tokens.access);
+    if (tokens.refresh) {
+        sessionStorage.setItem("serviappRefreshToken", tokens.refresh);
+    }
+}
+
+function limpiarSesion() {
+    sessionStorage.removeItem("serviappAccessToken");
+    sessionStorage.removeItem("serviappRefreshToken");
+    sessionStorage.removeItem("serviappUsuario");
+}
+
+async function solicitudAutenticada(url, opciones = {}, renovar = true) {
+    const access = sessionStorage.getItem("serviappAccessToken");
+    const headers = new Headers(opciones.headers || {});
+    if (access) headers.set("Authorization", "Bearer " + access);
+
+    let respuesta = await fetch(url, { ...opciones, headers });
+    if (respuesta.status !== 401 || !renovar) return respuesta;
+
+    const refresh = sessionStorage.getItem("serviappRefreshToken");
+    if (!refresh) return respuesta;
+
+    const renovacion = await fetch(API_USUARIOS + "token/refresh/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh: refresh })
+    });
+    if (!renovacion.ok) {
+        limpiarSesion();
+        return respuesta;
+    }
+
+    const tokens = await renovacion.json();
+    guardarTokens(tokens);
+    const nuevosHeaders = new Headers(opciones.headers || {});
+    nuevosHeaders.set("Authorization", "Bearer " + tokens.access);
+    respuesta = await fetch(url, { ...opciones, headers: nuevosHeaders });
+    return respuesta;
+}
+
 async function registrarUsuario(event) {
 
     event.preventDefault();
@@ -882,74 +926,51 @@ async function registrarUsuario(event) {
 // INICIAR SESIÓN
 // ================================
 
-function iniciarSesion(event) {
-
+async function iniciarSesion(event) {
     event.preventDefault();
 
+    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+    const password = document.getElementById("loginPassword").value;
+    const boton = event.submitter || document.querySelector("#loginForm button[type='submit']");
 
-    const email =
-        document
-        .getElementById("loginEmail")
-        .value
-        .trim()
-        .toLowerCase();
-
-
-    const password =
-        document
-        .getElementById("loginPassword")
-        .value;
-
-
-    const usuarios =
-        JSON.parse(
-            localStorage.getItem("serviappUsuarios")
-        ) || [];
-
-
-    const usuario =
-        usuarios.find(function(usuario) {
-
-            return (
-                usuario.email === email &&
-                usuario.password === password
-            );
-
+    if (boton) boton.disabled = true;
+    try {
+        const respuesta = await fetch(API_USUARIOS + "token/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, password: password })
         });
+        const datos = await respuesta.json();
 
+        if (!respuesta.ok) {
+            mostrarMensaje("Correo o contraseña incorrectos.");
+            return;
+        }
 
-    if (!usuario) {
+        guardarTokens(datos);
+        const perfilRespuesta = await solicitudAutenticada(API_USUARIOS + "perfil/");
+        if (!perfilRespuesta.ok) {
+            limpiarSesion();
+            mostrarMensaje("No pudimos cargar tu perfil. Intenta iniciar sesión de nuevo.");
+            return;
+        }
 
-        mostrarMensaje(
-            "Correo o contraseña incorrectos."
-        );
-
-        return;
+        const usuario = await perfilRespuesta.json();
+        sessionStorage.setItem("serviappUsuario", JSON.stringify(usuario));
+        document.getElementById("loginForm").reset();
+        cerrarAuth();
+        actualizarUsuario(usuario);
+        mostrarMensaje("¡Bienvenido, " + nombreCompleto(usuario) + "!");
+    } catch (error) {
+        console.error(error);
+        mostrarMensaje("No se pudo conectar con el servidor.");
+    } finally {
+        if (boton) boton.disabled = false;
     }
+}
 
-
-    // Guardar sesión
-
-    localStorage.setItem(
-        "serviappSesion",
-        JSON.stringify(usuario)
-    );
-
-
-    cerrarAuth();
-
-
-    mostrarMensaje(
-        "¡Bienvenido, " +
-        usuario.nombre +
-        "!"
-    );
-
-
-    // Cambiar botón
-
-    actualizarUsuario(usuario);
-
+function nombreCompleto(usuario) {
+    return [usuario.first_name, usuario.last_name].filter(Boolean).join(" ") || usuario.email;
 }
 
 
@@ -967,8 +988,7 @@ function actualizarUsuario(usuario) {
 
     if (botones.length > 0) {
 
-        botones[0].innerText =
-            usuario.nombre;
+        botones[0].innerText = nombreCompleto(usuario);
 
         botones[0].onclick =
             cerrarSesion;
@@ -983,12 +1003,7 @@ function actualizarUsuario(usuario) {
 // ================================
 
 function cerrarSesion() {
-
-    localStorage.removeItem(
-        "serviappSesion"
-    );
-
-
+    limpiarSesion();
     mostrarMensaje(
         "Sesión cerrada correctamente."
     );
@@ -1004,26 +1019,28 @@ function cerrarSesion() {
 
 
 // ================================
-// COMPROBAR SESIÓN AL CARGAR
+// RESTAURAR Y VALIDAR LA SESIÓN AL CARGAR
 // ================================
 
 document.addEventListener(
     "DOMContentLoaded",
-    function() {
+    async function() {
+        // El flujo anterior guardaba contraseñas sin cifrar en localStorage.
+        localStorage.removeItem("serviappUsuarios");
+        localStorage.removeItem("serviappSesion");
 
-        const sesion =
-            JSON.parse(
-                localStorage.getItem(
-                    "serviappSesion"
-                )
-            );
-
-
-        if (sesion) {
-
-            actualizarUsuario(sesion);
-
+        if (!sessionStorage.getItem("serviappRefreshToken")) return;
+        try {
+            const respuesta = await solicitudAutenticada(API_USUARIOS + "perfil/");
+            if (!respuesta.ok) {
+                limpiarSesion();
+                return;
+            }
+            const usuario = await respuesta.json();
+            sessionStorage.setItem("serviappUsuario", JSON.stringify(usuario));
+            actualizarUsuario(usuario);
+        } catch (error) {
+            console.error(error);
         }
-
     }
 );
