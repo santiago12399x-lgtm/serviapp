@@ -1,0 +1,838 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ServiApp - Servicios a domicilio</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+</head>
+
+<body>
+
+    <nav class="navbar">
+
+        <div class="logo">
+            <div class="logo-icon">✓</div>
+            ServiApp
+        </div>
+
+        <ul class="nav-links">
+            <li><a href="#inicio">Inicio</a></li>
+            <li><a href="#categorias">Categorías</a></li>
+            <li><a href="#servicios">Servicios</a></li>
+            <li><a href="#cercanos">Cerca de ti</a></li>
+            <li><a href="#mapa">Mapa</a></li>
+            <li><a href="#como-funciona">Cómo funciona</a></li>
+        </ul>
+
+        <button class="btn btn-primary" onclick="abrirLogin()">
+            Iniciar sesión
+        </button>
+
+    </nav>
+
+
+    <section class="hero" id="inicio">
+
+        <div class="hero-container">
+
+            <div class="hero-text">
+
+                <span class="badge">
+                    ⚡ Servicios confiables cerca de ti
+                </span>
+
+                <h1>
+                    Encuentra ayuda.
+                    <span>Resuelve rápido.</span>
+                </h1>
+
+                <p>
+                    Encuentra servicios para reparaciones,
+                    limpieza, belleza, tecnología y muchos
+                    servicios más.
+                </p>
+
+                <div class="hero-buttons">
+
+                    <a href="#servicios">
+                        <button class="btn btn-primary">
+                            Explorar servicios
+                        </button>
+                    </a>
+
+                    <button
+                        class="btn btn-secondary"
+                        onclick="mostrarMensaje('Próximamente podrás registrarte como profesional.')">
+
+                        Ofrecer mis servicios
+
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <div class="search-card">
+
+                <h2>¿Qué servicio necesitas?</h2>
+
+                <input
+                    id="search"
+                    class="input"
+                    type="text"
+                    placeholder="Ej. Plomería, limpieza..."
+                >
+
+                <select id="category" class="input">
+
+                    <option value="all">
+                        Todas las categorías
+                    </option>
+
+                    <option value="hogar">Hogar</option>
+                    <option value="limpieza">Limpieza</option>
+                    <option value="tecnologia">Tecnología</option>
+                    <option value="belleza">Belleza</option>
+                    <option value="automovil">Automóvil</option>
+                    <option value="educacion">Educación</option>
+
+                </select>
+
+                <button
+                    class="btn btn-primary search-button"
+                    onclick="buscarServicios()">
+
+                    Buscar Servicios
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section id="categorias">
+
+        <div class="container">
+
+            <div class="section-title">
+
+                <h2>Categorías populares</h2>
+
+                <p>
+                    Encuentra rápidamente el servicio que necesitas.
+                </p>
+
+            </div>
+
+
+            <div class="categories">
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('hogar')">
+
+                    <div class="category-icon">🔧</div>
+                    <strong>Hogar</strong>
+
+                </div>
+
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('limpieza')">
+
+                    <div class="category-icon">🧹</div>
+                    <strong>Limpieza</strong>
+
+                </div>
+
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('tecnologia')">
+
+                    <div class="category-icon">💻</div>
+                    <strong>Tecnología</strong>
+
+                </div>
+
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('belleza')">
+
+                    <div class="category-icon">💇</div>
+                    <strong>Belleza</strong>
+
+                </div>
+
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('automovil')">
+
+                    <div class="category-icon">🚗</div>
+                    <strong>Automóvil</strong>
+
+                </div>
+
+
+                <div
+                    class="category"
+                    onclick="seleccionarCategoria('educacion')">
+
+                    <div class="category-icon">📚</div>
+                    <strong>Educación</strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section id="servicios">
+
+        <div class="container">
+
+            <div class="section-title">
+
+                <h2>Servicios destacados</h2>
+
+                <p>
+                    Servicios disponibles para ayudarte.
+                </p>
+
+            </div>
+
+
+            <div class="services" id="serviceGrid">
+
+
+                <div
+                    class="service"
+                    data-category="hogar"
+                    data-name="plomeria reparaciones">
+
+                    <div class="service-image">
+                        🔧
+                    </div>
+
+                    <div class="service-content">
+
+                        <div class="service-header">
+
+                            <div>
+
+                                <h3>Plomería y reparaciones</h3>
+
+                                <span>👤 Carlos M.</span>
+
+                            </div>
+
+                            <span class="rating">
+                                ★ 4.9
+                            </span>
+
+                        </div>
+
+                        <p>
+                            Instalaciones, fugas, grifería
+                            y reparaciones del hogar.
+                        </p>
+
+                        <div class="price">
+                            Desde $40.000
+                        </div>
+
+                        <button
+                            class="btn btn-primary service-button"
+                            onclick="mostrarMensaje('Contactando a Carlos...')">
+
+                            Contactar
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="service"
+                    data-category="limpieza"
+                    data-name="limpieza hogar">
+
+                    <div class="service-image">
+                        🧹
+                    </div>
+
+                    <div class="service-content">
+
+                        <div class="service-header">
+
+                            <div>
+
+                                <h3>Limpieza del hogar</h3>
+
+                                <span>👤 Andrea R.</span>
+
+                            </div>
+
+                            <span class="rating">
+                                ★ 4.8
+                            </span>
+
+                        </div>
+
+                        <p>
+                            Limpieza profunda de casas,
+                            apartamentos y oficinas.
+                        </p>
+
+                        <div class="price">
+                            Desde $50.000
+                        </div>
+
+                        <button
+                            class="btn btn-primary service-button"
+                            onclick="mostrarMensaje('Contactando a Andrea...')">
+
+                            Contactar
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="service"
+                    data-category="tecnologia"
+                    data-name="computadores tecnologia">
+
+                    <div class="service-image">
+                        💻
+                    </div>
+
+                    <div class="service-content">
+
+                        <div class="service-header">
+
+                            <div>
+
+                                <h3>Soporte tecnológico</h3>
+
+                                <span>👤 Daniel P.</span>
+
+                            </div>
+
+                            <span class="rating">
+                                ★ 5.0
+                            </span>
+
+                        </div>
+
+                        <p>
+                            Computadores, redes,
+                            software y soporte técnico.
+                        </p>
+
+                        <div class="price">
+                            Desde $35.000
+                        </div>
+
+                        <button
+                            class="btn btn-primary service-button"
+                            onclick="mostrarMensaje('Contactando a Daniel...')">
+
+                            Contactar
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section id="cercanos">
+
+        <div class="container">
+
+            <div class="section-title">
+
+                <h2>Trabajadores cercanos</h2>
+
+                <p>
+                    Activa tu ubicación y encuentra profesionales
+                    disponibles cerca de ti.
+                </p>
+
+            </div>
+
+            <button
+                class="btn btn-primary"
+                id="btnUbicacion"
+                onclick="buscarTrabajadoresCercanos()">
+
+                📍 Buscar cerca de mí
+
+            </button>
+
+            <p id="estadoUbicacion" class="estado-ubicacion"></p>
+
+            <div class="services" id="workerGrid"></div>
+
+        </div>
+
+    </section>
+
+
+    <section id="mapa">
+
+        <div class="container">
+
+            <div class="section-title">
+
+                <h2>Mapa en tiempo real</h2>
+
+                <p>
+                    Ubicación actual de los prestadores de
+                    servicio disponibles.
+                </p>
+
+            </div>
+
+            <div id="mapaTrabajadores" class="mapa-trabajadores"></div>
+
+            <div class="mapa-leyenda">
+
+                <span>
+                    <span class="dot dot-usuario"></span>
+                    Tu ubicación
+                </span>
+
+                <span>
+                    <span class="dot dot-trabajador"></span>
+                    Trabajadores (ubicación en vivo)
+                </span>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="how" id="como-funciona">
+
+        <div class="container">
+
+            <div class="section-title">
+
+                <h2>¿Cómo funciona?</h2>
+
+                <p>
+                    Contratar un servicio nunca fue tan sencillo.
+                </p>
+
+            </div>
+
+
+            <div class="steps">
+
+                <div class="step">
+
+                    <div class="number">1</div>
+
+                    <h3>Busca</h3>
+
+                    <p>
+                        Encuentra el servicio que necesitas
+                        y revisa los servicios disponibles.
+                    </p>
+
+                </div>
+
+
+                <div class="step">
+
+                    <div class="number">2</div>
+
+                    <h3>Compara</h3>
+
+                    <p>
+                        Compara precios, valoraciones
+                        y experiencia.
+                    </p>
+
+                </div>
+
+
+                <div class="step">
+
+                    <div class="number">3</div>
+
+                    <h3>Contrata</h3>
+
+                    <p>
+                        Contacta al profesional y acuerda
+                        fecha y hora.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section>
+
+        <div class="container">
+
+            <div class="cta">
+
+                <div>
+
+                    <h2>¿Eres profesional?</h2>
+
+                    <p>
+                        Únete a ServiApp y consigue
+                        nuevos clientes.
+                    </p>
+
+                </div>
+
+                <button
+                    class="btn"
+                    onclick="mostrarMensaje('Registro de profesionales próximamente.')">
+
+                    Quiero ser profesional →
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <footer>
+
+        <div class="footer-content">
+
+            <div class="logo footer-logo">
+                <div class="logo-icon">✓</div>
+                ServiApp
+            </div>
+
+            <p>
+                Servicios fáciles, profesionales confiables.
+            </p>
+
+            <p>
+                © 2026 ServiApp
+            </p>
+
+        </div>
+
+    </footer>
+
+
+    <div id="message" class="message"></div>
+
+
+    <!-- VENTANA DE INICIO DE SESIÓN Y REGISTRO -->
+
+    <div class="modal-overlay" id="authModal">
+
+        <div class="auth-modal">
+
+            <button class="close-modal" onclick="cerrarAuth()">
+                ×
+            </button>
+
+
+            <div class="auth-tabs">
+
+                <button
+                    id="loginTab"
+                    class="auth-tab active"
+                    onclick="mostrarLogin()">
+
+                    Iniciar sesión
+
+                </button>
+
+                <button
+                    id="registerTab"
+                    class="auth-tab"
+                    onclick="mostrarRegistro()">
+
+                    Registrarse
+
+                </button>
+
+            </div>
+
+
+            <!-- FORMULARIO DE INICIO DE SESIÓN -->
+
+            <form
+                id="loginForm"
+                class="auth-form"
+                onsubmit="iniciarSesion(event)">
+
+                <h2>¡Bienvenido a ServiApp! 👋</h2>
+
+                <p>
+                    Inicia sesión para continuar.
+                </p>
+
+                <label>Correo electrónico</label>
+
+                <input
+                    id="loginEmail"
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    required
+                >
+
+                <label>Contraseña</label>
+
+                <input
+                    id="loginPassword"
+                    type="password"
+                    placeholder="********"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    class="btn btn-primary auth-button">
+
+                    Iniciar sesión
+
+                </button>
+
+                <div class="auth-link">
+
+                    ¿No tienes una cuenta?
+
+                    <button
+                        type="button"
+                        onclick="mostrarRegistro()">
+
+                        Regístrate
+
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            <!-- FORMULARIO DE REGISTRO -->
+
+            <form
+                id="registerForm"
+                class="auth-form hidden"
+                onsubmit="registrarUsuario(event)">
+
+                <h2>Crear cuenta 🚀</h2>
+
+                <p>
+                    Únete a la comunidad de ServiApp.
+                </p>
+
+                <label>Nombre completo</label>
+
+                <input
+                    id="registerName"
+                    type="text"
+                    placeholder="Juan Pérez"
+                    required
+                >
+
+                <label>Correo electrónico</label>
+
+                <input
+                    id="registerEmail"
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    required
+                >
+
+                <label>Contraseña</label>
+
+                <input
+                    id="registerPassword"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    minlength="6"
+                    required
+                >
+
+                <label>Teléfono</label>
+
+                <input
+                    id="registerTelefono"
+                    type="tel"
+                    placeholder="3001234567"
+                    required
+                >
+
+                <label>Tipo de cuenta</label>
+
+                <select id="registerType" required>
+
+                    <option value="">
+                        Selecciona una opción
+                    </option>
+
+                    <option value="cliente">
+                        👤 Cliente
+                    </option>
+
+                    <option value="profesional">
+                        🛠️ Profesional
+                    </option>
+
+                </select>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary auth-button">
+
+                    Crear cuenta
+
+                </button>
+
+                <div class="auth-link">
+
+                    ¿Ya tienes una cuenta?
+
+                    <button
+                        type="button"
+                        onclick="mostrarLogin()">
+
+                        Inicia sesión
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- VENTANA DEL PERFIL DEL TRABAJADOR -->
+
+    <div class="modal-overlay" id="profileModal">
+
+        <div class="auth-modal profile-modal">
+
+            <button class="close-modal" onclick="cerrarPerfil()">
+                ×
+            </button>
+
+            <div class="profile-header">
+
+                <div class="profile-icon" id="perfilIcono"></div>
+
+                <div>
+
+                    <h2 id="perfilNombre"></h2>
+
+                    <span id="perfilOficio" class="profile-oficio"></span>
+
+                    <span
+                        id="perfilVerificado"
+                        class="badge-verificado">
+
+                        ✔ Verificado
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <p id="perfilDescripcion" class="profile-descripcion"></p>
+
+            <div class="profile-info">
+
+                <div>
+                    <strong>Calificación</strong>
+                    <span id="perfilCalificacion"></span>
+                </div>
+
+                <div>
+                    <strong>Disponibilidad</strong>
+                    <span id="perfilDisponibilidad"></span>
+                </div>
+
+                <div>
+                    <strong>Teléfono</strong>
+                    <span id="perfilTelefono"></span>
+                </div>
+
+                <div>
+                    <strong>Precio</strong>
+                    <span id="perfilPrecio"></span>
+                </div>
+
+            </div>
+
+            <button
+                id="perfilBtnContactar"
+                class="btn btn-primary auth-button">
+
+                Contactar
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- LIBRERÍA DEL MAPA Y JAVASCRIPT -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
