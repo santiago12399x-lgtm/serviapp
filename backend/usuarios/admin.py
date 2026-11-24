@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Usuario
+from .models import PerfilProfesional, Usuario
 
 
 @admin.register(Usuario)
@@ -25,3 +25,10 @@ class UsuarioAdmin(UserAdmin):
             'fields': ('email', 'first_name', 'last_name', 'password1', 'password2'),
         }),
     )
+
+
+@admin.register(PerfilProfesional)
+class PerfilProfesionalAdmin(admin.ModelAdmin):
+    list_display = ('oficio', 'categoria', 'ubicacion', 'usuario', 'actualizado')
+    list_filter = ('categoria', 'telefono_publico')
+    search_fields = ('oficio', 'servicios', 'ubicacion', 'usuario__email')

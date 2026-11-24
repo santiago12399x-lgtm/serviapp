@@ -17,7 +17,7 @@ class DevelopmentCorsMiddleware:
         origin = request.headers.get('Origin')
         if origin in settings.CORS_ALLOWED_ORIGINS:
             response['Access-Control-Allow-Origin'] = origin
-            response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+            response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, OPTIONS'
             response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
             response['Access-Control-Max-Age'] = '600'
             response['Vary'] = 'Origin'

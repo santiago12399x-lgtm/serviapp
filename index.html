@@ -10,9 +10,6 @@
 
     <link rel="stylesheet" href="style.css">
 
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 </head>
 
 <body>
@@ -35,6 +32,15 @@
 
         <button class="btn btn-primary" onclick="abrirLogin()">
             Iniciar sesión
+        </button>
+
+        <button
+            class="btn btn-secondary"
+            id="btnPerfilProfesional"
+            type="button"
+            hidden
+            onclick="abrirMiPerfilProfesional()">
+            Mi perfil profesional
         </button>
 
     </nav>
@@ -71,7 +77,7 @@
 
                     <button
                         class="btn btn-secondary"
-                        onclick="mostrarMensaje('Próximamente podrás registrarte como profesional.')">
+                        onclick="iniciarFlujoProfesional()">
 
                         Ofrecer mis servicios
 
@@ -84,7 +90,7 @@
 
             <div class="search-card">
 
-                <h2>¿Qué servicio necesitas?</h2>
+                <h2>Encuentra un profesional</h2>
 
                 <input
                     id="search"
@@ -105,14 +111,22 @@
                     <option value="belleza">Belleza</option>
                     <option value="automovil">Automóvil</option>
                     <option value="educacion">Educación</option>
+                    <option value="otros">Otros</option>
 
                 </select>
+
+                <input
+                    id="searchLocation"
+                    class="input"
+                    type="text"
+                    placeholder="Ciudad o zona (opcional)"
+                >
 
                 <button
                     class="btn btn-primary search-button"
                     onclick="buscarServicios()">
 
-                    Buscar Servicios
+                    Buscar profesionales
 
                 </button>
 
@@ -212,165 +226,18 @@
 
             <div class="section-title">
 
-                <h2>Servicios destacados</h2>
+                <h2>Profesionales disponibles</h2>
 
                 <p>
-                    Servicios disponibles para ayudarte.
+                    Perfiles publicados por profesionales de ServiApp.
                 </p>
 
             </div>
 
 
+            <p id="searchResultsStatus" class="estado-ubicacion" aria-live="polite"></p>
+
             <div class="services" id="serviceGrid">
-
-
-                <div
-                    class="service"
-                    data-category="hogar"
-                    data-name="plomeria reparaciones">
-
-                    <div class="service-image">
-                        🔧
-                    </div>
-
-                    <div class="service-content">
-
-                        <div class="service-header">
-
-                            <div>
-
-                                <h3>Plomería y reparaciones</h3>
-
-                                <span>👤 Carlos M.</span>
-
-                            </div>
-
-                            <span class="rating">
-                                ★ 4.9
-                            </span>
-
-                        </div>
-
-                        <p>
-                            Instalaciones, fugas, grifería
-                            y reparaciones del hogar.
-                        </p>
-
-                        <div class="price">
-                            Desde $40.000
-                        </div>
-
-                        <button
-                            class="btn btn-primary service-button"
-                            onclick="mostrarMensaje('Contactando a Carlos...')">
-
-                            Contactar
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <div
-                    class="service"
-                    data-category="limpieza"
-                    data-name="limpieza hogar">
-
-                    <div class="service-image">
-                        🧹
-                    </div>
-
-                    <div class="service-content">
-
-                        <div class="service-header">
-
-                            <div>
-
-                                <h3>Limpieza del hogar</h3>
-
-                                <span>👤 Andrea R.</span>
-
-                            </div>
-
-                            <span class="rating">
-                                ★ 4.8
-                            </span>
-
-                        </div>
-
-                        <p>
-                            Limpieza profunda de casas,
-                            apartamentos y oficinas.
-                        </p>
-
-                        <div class="price">
-                            Desde $50.000
-                        </div>
-
-                        <button
-                            class="btn btn-primary service-button"
-                            onclick="mostrarMensaje('Contactando a Andrea...')">
-
-                            Contactar
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <div
-                    class="service"
-                    data-category="tecnologia"
-                    data-name="computadores tecnologia">
-
-                    <div class="service-image">
-                        💻
-                    </div>
-
-                    <div class="service-content">
-
-                        <div class="service-header">
-
-                            <div>
-
-                                <h3>Soporte tecnológico</h3>
-
-                                <span>👤 Daniel P.</span>
-
-                            </div>
-
-                            <span class="rating">
-                                ★ 5.0
-                            </span>
-
-                        </div>
-
-                        <p>
-                            Computadores, redes,
-                            software y soporte técnico.
-                        </p>
-
-                        <div class="price">
-                            Desde $35.000
-                        </div>
-
-                        <button
-                            class="btn btn-primary service-button"
-                            onclick="mostrarMensaje('Contactando a Daniel...')">
-
-                            Contactar
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
             </div>
 
         </div>
@@ -384,11 +251,10 @@
 
             <div class="section-title">
 
-                <h2>Trabajadores cercanos</h2>
+                <h2>Perfiles profesionales</h2>
 
                 <p>
-                    Activa tu ubicación y encuentra profesionales
-                    disponibles cerca de ti.
+                    Consulta los perfiles profesionales registrados en ServiApp.
                 </p>
 
             </div>
@@ -398,7 +264,7 @@
                 id="btnUbicacion"
                 onclick="buscarTrabajadoresCercanos()">
 
-                📍 Buscar cerca de mí
+                Ver profesionales
 
             </button>
 
@@ -417,29 +283,16 @@
 
             <div class="section-title">
 
-                <h2>Mapa en tiempo real</h2>
+                <h2>Ubicación por zona de atención</h2>
 
                 <p>
-                    Ubicación actual de los prestadores de
-                    servicio disponibles.
+                    Los perfiles se pueden buscar por ciudad o zona de atención.
                 </p>
 
             </div>
 
-            <div id="mapaTrabajadores" class="mapa-trabajadores"></div>
-
-            <div class="mapa-leyenda">
-
-                <span>
-                    <span class="dot dot-usuario"></span>
-                    Tu ubicación
-                </span>
-
-                <span>
-                    <span class="dot dot-trabajador"></span>
-                    Trabajadores (ubicación en vivo)
-                </span>
-
+            <div id="mapaTrabajadores" class="map-placeholder">
+                Por ahora mostramos la zona de atención que cada profesional registra en su perfil. No publicamos ubicaciones exactas.
             </div>
 
         </div>
@@ -531,7 +384,7 @@
 
                 <button
                     class="btn"
-                    onclick="mostrarMensaje('Registro de profesionales próximamente.')">
+                    onclick="iniciarFlujoProfesional()">
 
                     Quiero ser profesional →
 
@@ -756,7 +609,60 @@
     </div>
 
 
-    <!-- VENTANA DEL PERFIL DEL TRABAJADOR -->
+    <!-- FORMULARIO DEL PERFIL PROFESIONAL -->
+
+    <div class="modal-overlay" id="workerProfileEditor">
+        <div class="auth-modal profile-editor-modal">
+            <button class="close-modal" type="button" onclick="cerrarEditorPerfilProfesional()">×</button>
+            <h2 id="workerProfileTitle">Completa tu perfil profesional</h2>
+            <p class="profile-editor-intro">Estos datos ayudarán a los clientes a encontrar tus servicios.</p>
+            <form id="workerProfileForm" onsubmit="guardarPerfilProfesional(event)">
+                <label for="workerCategory">Categoría</label>
+                <select id="workerCategory" required>
+                    <option value="">Selecciona una categoría</option>
+                    <option value="hogar">Hogar</option>
+                    <option value="limpieza">Limpieza</option>
+                    <option value="tecnologia">Tecnología</option>
+                    <option value="belleza">Belleza</option>
+                    <option value="automovil">Automóvil</option>
+                    <option value="educacion">Educación</option>
+                    <option value="otros">Otros</option>
+                </select>
+
+                <label for="workerTrade">Oficio o profesión</label>
+                <input id="workerTrade" type="text" maxlength="100" placeholder="Ej. Plomería" required>
+
+                <label for="workerServices">Servicios que ofreces</label>
+                <textarea id="workerServices" rows="3" placeholder="Describe los servicios que realizas" required></textarea>
+
+                <label for="workerDescription">Descripción</label>
+                <textarea id="workerDescription" rows="3" placeholder="Cuéntales a los clientes sobre tu trabajo" required></textarea>
+
+                <label for="workerExperience">Años de experiencia</label>
+                <input id="workerExperience" type="number" min="0" max="80" step="1" value="0" required>
+
+                <label for="workerLocation">Ciudad o zona de atención</label>
+                <input id="workerLocation" type="text" maxlength="120" placeholder="Ej. Bogotá, Chapinero" required>
+
+                <label for="workerAvailability">Disponibilidad</label>
+                <input id="workerAvailability" type="text" maxlength="180" placeholder="Ej. Lunes a sábado, 8 a. m. a 6 p. m." required>
+
+                <label for="workerRate">Tarifa desde (COP, opcional)</label>
+                <input id="workerRate" type="number" min="0" step="1000" placeholder="Ej. 45000">
+
+                <label class="profile-phone-consent">
+                    <input id="workerPhonePublic" type="checkbox">
+                    Permitir que mi teléfono de cuenta se muestre en el perfil público
+                </label>
+
+                <p id="workerProfileFeedback" class="profile-feedback" aria-live="polite"></p>
+                <button id="workerProfileSave" type="submit" class="btn btn-primary auth-button">Guardar perfil</button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- VENTANA DEL PERFIL PÚBLICO -->
 
     <div class="modal-overlay" id="profileModal">
 
@@ -793,8 +699,18 @@
             <div class="profile-info">
 
                 <div>
-                    <strong>Calificación</strong>
+                    <strong>Experiencia</strong>
                     <span id="perfilCalificacion"></span>
+                </div>
+
+                <div>
+                    <strong>Servicios</strong>
+                    <span id="perfilServicios"></span>
+                </div>
+
+                <div>
+                    <strong>Zona de atención</strong>
+                    <span id="perfilUbicacion"></span>
                 </div>
 
                 <div>
@@ -804,7 +720,7 @@
 
                 <div>
                     <strong>Teléfono</strong>
-                    <span id="perfilTelefono"></span>
+                    <span id="perfilTelefono">No compartido</span>
                 </div>
 
                 <div>
@@ -829,9 +745,8 @@
 
     <!-- LIBRERÍA DEL MAPA Y JAVASCRIPT -->
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-
     <script src="script.js"></script>
+    <script src="perfil-profesional.js"></script>
 
 </body>
 
