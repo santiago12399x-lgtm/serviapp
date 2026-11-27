@@ -334,6 +334,9 @@ function actualizarUsuario(usuario) {
     if (typeof actualizarBotonPerfilProfesional === "function") {
         actualizarBotonPerfilProfesional(usuario);
     }
+    if (typeof actualizarBotonesInteracciones === "function") {
+        actualizarBotonesInteracciones(usuario);
+    }
 
 }
 

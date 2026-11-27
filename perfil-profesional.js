@@ -55,12 +55,24 @@ function abrirEditorPerfilProfesional(perfil) {
     document.getElementById("workerDescription").value = perfil?.descripcion || "";
     document.getElementById("workerExperience").value = perfil?.experiencia_anios ?? 0;
     document.getElementById("workerLocation").value = perfil?.ubicacion || "";
+    document.getElementById("workerLatitude").value = perfil?.latitud ?? "";
+    document.getElementById("workerLongitude").value = perfil?.longitud ?? "";
     document.getElementById("workerAvailability").value = perfil?.disponibilidad || "";
     document.getElementById("workerRate").value = perfil?.tarifa_desde || "";
     document.getElementById("workerPhonePublic").checked = Boolean(perfil?.telefono_publico);
+    const fotoPreview = document.getElementById("workerProfilePhotoPreview");
+    fotoPreview.hidden = !perfil?.foto_perfil;
+    fotoPreview.src = perfil?.foto_perfil ? urlMediaServiApp(perfil.foto_perfil) : "";
+    document.getElementById("workerProfilePhoto").value = "";
+    const portfolioEditor = document.getElementById("portfolioEditor");
+    portfolioEditor.hidden = !perfil;
     document.getElementById("workerProfileFeedback").textContent = "";
     document.getElementById("workerProfileSave").disabled = false;
     document.getElementById("workerProfileEditor").classList.add("show");
+    if (typeof inicializarSelectorUbicacion === "function") {
+        inicializarSelectorUbicacion(perfil?.latitud, perfil?.longitud);
+    }
+    if (perfil && typeof cargarTrabajosPropios === "function") cargarTrabajosPropios();
 }
 
 function cerrarEditorPerfilProfesional() {
@@ -133,23 +145,25 @@ async function guardarPerfilProfesional(event) {
     feedback.textContent = "Guardando tu perfil…";
 
     const tarifa = document.getElementById("workerRate").value.trim();
-    const datos = {
-        categoria: document.getElementById("workerCategory").value,
-        oficio: document.getElementById("workerTrade").value.trim(),
-        servicios: document.getElementById("workerServices").value.trim(),
-        descripcion: document.getElementById("workerDescription").value.trim(),
-        experiencia_anios: Number(document.getElementById("workerExperience").value),
-        ubicacion: document.getElementById("workerLocation").value.trim(),
-        disponibilidad: document.getElementById("workerAvailability").value.trim(),
-        tarifa_desde: tarifa || null,
-        telefono_publico: document.getElementById("workerPhonePublic").checked
-    };
+    const datos = new FormData();
+    datos.append("categoria", document.getElementById("workerCategory").value);
+    datos.append("oficio", document.getElementById("workerTrade").value.trim());
+    datos.append("servicios", document.getElementById("workerServices").value.trim());
+    datos.append("descripcion", document.getElementById("workerDescription").value.trim());
+    datos.append("experiencia_anios", document.getElementById("workerExperience").value);
+    datos.append("ubicacion", document.getElementById("workerLocation").value.trim());
+    datos.append("latitud", document.getElementById("workerLatitude").value);
+    datos.append("longitud", document.getElementById("workerLongitude").value);
+    datos.append("disponibilidad", document.getElementById("workerAvailability").value.trim());
+    datos.append("tarifa_desde", tarifa);
+    datos.append("telefono_publico", document.getElementById("workerPhonePublic").checked ? "true" : "false");
+    const foto = document.getElementById("workerProfilePhoto").files[0];
+    if (foto) datos.append("foto_perfil", foto);
 
     try {
         const respuesta = await solicitudAutenticada(API_PERFIL_PROFESIONAL, {
             method: perfilProfesionalGuardado ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(datos)
+            body: datos
         });
         const resultado = await respuesta.json().catch(() => ({}));
         if (!respuesta.ok) {
@@ -158,6 +172,7 @@ async function guardarPerfilProfesional(event) {
         }
 
         perfilProfesionalGuardado = resultado;
+        document.getElementById("portfolioEditor").hidden = false;
         feedback.textContent = "Perfil guardado correctamente.";
         mostrarMensaje("Tu perfil profesional quedó guardado.");
         await cargarDirectorioProfesionales();
@@ -184,7 +199,14 @@ function crearElemento(tag, className, texto) {
 
 function crearTarjetaProfesional(profesional) {
     const tarjeta = crearElemento("article", "service");
-    const imagen = crearElemento("div", "service-image", ICONOS_CATEGORIA[profesional.categoria] || "🛠️");
+    const imagen = profesional.foto_perfil
+        ? document.createElement("img")
+        : crearElemento("div", "service-image", ICONOS_CATEGORIA[profesional.categoria] || "🛠️");
+    if (profesional.foto_perfil) {
+        imagen.className = "service-image service-image-photo";
+        imagen.src = urlMediaServiApp(profesional.foto_perfil);
+        imagen.alt = "Foto de " + (profesional.nombre || "profesional");
+    }
     const contenido = crearElemento("div", "service-content");
     const cabecera = crearElemento("div", "service-header");
     const identidad = document.createElement("div");
@@ -194,6 +216,9 @@ function crearTarjetaProfesional(profesional) {
     cabecera.appendChild(crearElemento("span", "profile-category", profesional.categoria_nombre || "Profesional"));
     contenido.appendChild(cabecera);
     contenido.appendChild(crearElemento("p", "", profesional.descripcion || profesional.servicios || "Perfil profesional de ServiApp."));
+    if (profesional.promedio_calificacion !== null && profesional.promedio_calificacion !== undefined) {
+        contenido.appendChild(crearElemento("p", "review-stars", "★ " + profesional.promedio_calificacion + " · " + profesional.cantidad_resenas + " reseñas"));
+    }
     contenido.appendChild(crearElemento("p", "profile-card-location", "📍 " + (profesional.ubicacion || "Ubicación no indicada")));
     contenido.appendChild(crearElemento("div", "price", precioProfesional(profesional.tarifa_desde)));
 
@@ -246,6 +271,7 @@ async function cargarDirectorioProfesionales() {
         const perfiles = await pedirProfesionales();
         mostrarProfesionales(perfiles, "serviceGrid");
         mostrarProfesionales(perfiles, "workerGrid");
+        if (typeof actualizarMapaProfesionales === "function") actualizarMapaProfesionales(perfiles);
         if (status) status.textContent = perfiles.length
             ? "Mostrando " + perfiles.length + " perfiles profesionales."
             : "Todavía no hay perfiles publicados. Si eres profesional, crea tu perfil para aparecer aquí.";
@@ -254,6 +280,7 @@ async function cargarDirectorioProfesionales() {
         if (status) status.textContent = "No pudimos conectar con el servidor. Revisa que Django esté activo.";
         mostrarProfesionales([], "serviceGrid");
         mostrarProfesionales([], "workerGrid");
+        if (typeof actualizarMapaProfesionales === "function") actualizarMapaProfesionales([]);
     }
 }
 
@@ -270,6 +297,7 @@ window.buscarServicios = async function () {
     try {
         const perfiles = await pedirProfesionales(filtros);
         mostrarProfesionales(perfiles, "serviceGrid");
+        if (typeof actualizarMapaProfesionales === "function") actualizarMapaProfesionales(perfiles);
         status.textContent = perfiles.length
             ? "Encontramos " + perfiles.length + " profesional(es)."
             : "No encontramos profesionales con esos filtros. Prueba con otra categoría o zona.";
@@ -291,6 +319,7 @@ window.buscarTrabajadoresCercanos = async function () {
     try {
         const perfiles = await pedirProfesionales();
         mostrarProfesionales(perfiles, "workerGrid");
+        if (typeof actualizarMapaProfesionales === "function") actualizarMapaProfesionales(perfiles);
         estado.textContent = perfiles.length
             ? "Mostrando perfiles de profesionales registrados. Usa el buscador para filtrar por zona."
             : "Aún no hay perfiles profesionales publicados.";
@@ -306,6 +335,10 @@ window.verPerfilTrabajador = async function (id) {
         if (!respuesta.ok) throw new Error("No se pudo consultar el perfil.");
         const perfil = await respuesta.json();
         document.getElementById("perfilIcono").textContent = ICONOS_CATEGORIA[perfil.categoria] || "🛠️";
+        const fotoPerfil = document.getElementById("perfilFoto");
+        fotoPerfil.hidden = !perfil.foto_perfil;
+        fotoPerfil.src = perfil.foto_perfil ? urlMediaServiApp(perfil.foto_perfil) : "";
+        document.getElementById("perfilIcono").hidden = Boolean(perfil.foto_perfil);
         document.getElementById("perfilNombre").textContent = perfil.nombre || "Profesional ServiApp";
         document.getElementById("perfilOficio").textContent = perfil.oficio || perfil.categoria_nombre || "";
         document.getElementById("perfilDescripcion").textContent = perfil.descripcion || "";
@@ -315,11 +348,32 @@ window.verPerfilTrabajador = async function (id) {
         document.getElementById("perfilDisponibilidad").textContent = perfil.disponibilidad || "Consultar disponibilidad";
         document.getElementById("perfilTelefono").textContent = perfil.telefono || "No compartido";
         document.getElementById("perfilPrecio").textContent = precioProfesional(perfil.tarifa_desde);
+        document.getElementById("perfilPromedio").textContent = perfil.promedio_calificacion === null
+            ? "Aún sin reseñas"
+            : "★ " + perfil.promedio_calificacion + " de 5 · " + perfil.cantidad_resenas + " reseña(s)";
+        const galeria = document.getElementById("perfilGaleria");
+        galeria.replaceChildren();
+        (perfil.trabajos || []).forEach((trabajo) => galeria.appendChild(crearTarjetaTrabajo(trabajo, false)));
+        if (!(perfil.trabajos || []).length) {
+            galeria.appendChild(crearElemento("p", "worker-empty", "Este profesional todavía no ha publicado fotos de trabajos."));
+        }
+        const resenas = document.getElementById("perfilResenas");
+        resenas.replaceChildren();
+        (perfil.resenas || []).forEach((resena) => {
+            const tarjetaResena = crearElemento("article", "review-card");
+            tarjetaResena.appendChild(crearElemento("strong", "", resena.cliente));
+            tarjetaResena.appendChild(crearElemento("div", "review-stars", "★".repeat(resena.calificacion) + "☆".repeat(5 - resena.calificacion)));
+            if (resena.comentario) tarjetaResena.appendChild(crearElemento("p", "", resena.comentario));
+            tarjetaResena.appendChild(crearElemento("small", "", new Date(resena.creado).toLocaleDateString("es-CO")));
+            resenas.appendChild(tarjetaResena);
+        });
+        if (!(perfil.resenas || []).length) resenas.appendChild(crearElemento("p", "worker-empty", "Aún no hay opiniones publicadas."));
         document.getElementById("perfilVerificado").style.display = "none";
         const boton = document.getElementById("perfilBtnContactar");
         boton.onclick = perfil.telefono
             ? () => { window.location.href = "tel:" + perfil.telefono.replace(/[^+\d]/g, ""); }
             : () => mostrarMensaje("El profesional no ha compartido su teléfono público.");
+        document.getElementById("perfilBtnSolicitar").onclick = () => solicitarServicioDesdePerfil(perfil.id, perfil.nombre, perfil.oficio);
         document.getElementById("profileModal").classList.add("show");
     } catch (error) {
         console.error(error);
@@ -334,6 +388,7 @@ window.cerrarPerfil = function () {
 document.addEventListener("DOMContentLoaded", function () {
     const usuario = usuarioActualServiApp();
     actualizarBotonPerfilProfesional(usuario);
+    cargarDirectorioProfesionales();
 
     const busqueda = document.getElementById("search");
     const ubicacion = document.getElementById("searchLocation");

@@ -9,6 +9,7 @@
     <title>ServiApp - Servicios a domicilio</title>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
 
 </head>
 
@@ -41,6 +42,13 @@
             hidden
             onclick="abrirMiPerfilProfesional()">
             Mi perfil profesional
+        </button>
+
+        <button class="btn btn-secondary" id="btnSolicitudes" type="button" hidden onclick="abrirPanelSolicitudes()">
+            Mis solicitudes
+        </button>
+        <button class="btn btn-secondary notification-nav-button" id="btnNotificaciones" type="button" hidden onclick="abrirNotificaciones()">
+            Notificaciones <span id="notificationCount" class="notification-count" hidden>0</span>
         </button>
 
     </nav>
@@ -286,14 +294,17 @@
                 <h2>Ubicación por zona de atención</h2>
 
                 <p>
-                    Los perfiles se pueden buscar por ciudad o zona de atención.
+                    Los marcadores muestran las zonas aproximadas elegidas por los profesionales.
                 </p>
 
             </div>
 
-            <div id="mapaTrabajadores" class="map-placeholder">
-                Por ahora mostramos la zona de atención que cada profesional registra en su perfil. No publicamos ubicaciones exactas.
+            <div class="location-map-actions">
+                <p id="mapaEstado" class="estado-ubicacion" aria-live="polite">Cargando ubicaciones aproximadas…</p>
+                <button type="button" class="btn btn-secondary" onclick="centrarMapaEnMiUbicacion()">Centrar en mi ubicación</button>
             </div>
+            <div id="mapaTrabajadores" class="mapa-trabajadores" role="application" aria-label="Mapa de zonas aproximadas de profesionales"></div>
+            <p class="map-credit">Ubicaciones aproximadas · Mapa © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</p>
 
         </div>
 
@@ -638,11 +649,26 @@
                 <label for="workerDescription">Descripción</label>
                 <textarea id="workerDescription" rows="3" placeholder="Cuéntales a los clientes sobre tu trabajo" required></textarea>
 
+                <label for="workerProfilePhoto">Foto de perfil (JPG, PNG o WebP; máximo 5 MB)</label>
+                <input id="workerProfilePhoto" type="file" accept="image/jpeg,image/png,image/webp">
+                <img id="workerProfilePhotoPreview" class="profile-photo-preview" alt="Vista previa de la foto de perfil" hidden>
+
                 <label for="workerExperience">Años de experiencia</label>
                 <input id="workerExperience" type="number" min="0" max="80" step="1" value="0" required>
 
                 <label for="workerLocation">Ciudad o zona de atención</label>
                 <input id="workerLocation" type="text" maxlength="120" placeholder="Ej. Bogotá, Chapinero" required>
+
+                <label>Ubicación aproximada en el mapa (opcional)</label>
+                <p class="location-privacy-note">Marca una zona aproximada de atención. La app redondea el punto para no mostrar una dirección exacta.</p>
+                <div class="location-picker-actions">
+                    <button type="button" class="btn btn-secondary" onclick="usarUbicacionActualProfesional()">Usar mi ubicación</button>
+                    <button type="button" class="btn btn-secondary" onclick="borrarUbicacionProfesional()">Quitar ubicación</button>
+                </div>
+                <div id="selectorUbicacionProfesional" class="location-picker-map" role="application" aria-label="Mapa para elegir una zona aproximada"></div>
+                <input id="workerLatitude" type="hidden">
+                <input id="workerLongitude" type="hidden">
+                <p id="workerLocationMapStatus" class="location-map-status" aria-live="polite">Haz clic en el mapa para elegir una zona aproximada.</p>
 
                 <label for="workerAvailability">Disponibilidad</label>
                 <input id="workerAvailability" type="text" maxlength="180" placeholder="Ej. Lunes a sábado, 8 a. m. a 6 p. m." required>
@@ -658,6 +684,22 @@
                 <p id="workerProfileFeedback" class="profile-feedback" aria-live="polite"></p>
                 <button id="workerProfileSave" type="submit" class="btn btn-primary auth-button">Guardar perfil</button>
             </form>
+
+                <div id="portfolioEditor" class="portfolio-editor" hidden>
+                    <h3>Fotos de trabajos</h3>
+                    <p>Agrega fotos de trabajos que ya realizaste. Usa imágenes JPG, PNG o WebP de hasta 5 MB.</p>
+                    <form id="portfolioForm" onsubmit="guardarTrabajoProfesional(event)">
+                        <label for="portfolioTitle">Nombre del trabajo</label>
+                        <input id="portfolioTitle" type="text" maxlength="100" required placeholder="Ej. Reparación de cocina">
+                        <label for="portfolioDescription">Descripción (opcional)</label>
+                        <textarea id="portfolioDescription" maxlength="400" rows="2" placeholder="Qué hiciste en este trabajo"></textarea>
+                        <label for="portfolioPhoto">Foto del trabajo</label>
+                        <input id="portfolioPhoto" type="file" accept="image/jpeg,image/png,image/webp" required>
+                        <p id="portfolioFeedback" class="profile-feedback" aria-live="polite"></p>
+                        <button id="portfolioSave" type="submit" class="btn btn-secondary auth-button">Subir foto del trabajo</button>
+                    </form>
+                    <div id="portfolioOwnGrid" class="portfolio-grid"></div>
+                </div>
         </div>
     </div>
 
@@ -675,6 +717,7 @@
             <div class="profile-header">
 
                 <div class="profile-icon" id="perfilIcono"></div>
+                <img id="perfilFoto" class="profile-photo-public" alt="Foto de perfil del profesional" hidden>
 
                 <div>
 
@@ -730,6 +773,16 @@
 
             </div>
 
+            <div id="perfilGaleria" class="portfolio-grid"></div>
+
+            <section class="reviews-section">
+                <h3>Opiniones de clientes</h3>
+                <p id="perfilPromedio" class="review-average"></p>
+                <div id="perfilResenas" class="review-list"></div>
+            </section>
+
+            <button id="perfilBtnSolicitar" class="btn btn-secondary auth-button" type="button">Solicitar servicio</button>
+
             <button
                 id="perfilBtnContactar"
                 class="btn btn-primary auth-button">
@@ -743,10 +796,74 @@
     </div>
 
 
+    <div class="modal-overlay" id="requestModal">
+        <div class="auth-modal app-panel-modal">
+            <button class="close-modal" type="button" onclick="cerrarSolicitud()">×</button>
+            <h2>Solicitar servicio</h2>
+            <p id="requestProfessionalName" class="profile-editor-intro"></p>
+            <form id="requestForm" onsubmit="enviarSolicitudServicio(event)">
+                <label for="requestService">Servicio que necesitas</label>
+                <input id="requestService" type="text" maxlength="120" required>
+                <label for="requestDescription">Cuéntanos qué necesitas</label>
+                <textarea id="requestDescription" maxlength="2000" rows="4" required></textarea>
+                <label for="requestLocation">Ciudad, zona o dirección acordada</label>
+                <input id="requestLocation" type="text" maxlength="180" required>
+                <label for="requestDate">Fecha y hora que prefieres</label>
+                <input id="requestDate" type="datetime-local" required>
+                <p id="requestFeedback" class="profile-feedback" aria-live="polite"></p>
+                <button id="requestSubmit" class="btn btn-primary auth-button" type="submit">Enviar solicitud</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="dashboardModal">
+        <div class="auth-modal app-panel-modal">
+            <button class="close-modal" type="button" onclick="cerrarPanelSolicitudes()">×</button>
+            <h2 id="dashboardTitle">Mis solicitudes</h2>
+            <p id="dashboardFeedback" class="profile-editor-intro" aria-live="polite"></p>
+            <div id="dashboardRequests" class="dashboard-list"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="notificationsModal">
+        <div class="auth-modal app-panel-modal">
+            <button class="close-modal" type="button" onclick="cerrarNotificaciones()">×</button>
+            <h2>Notificaciones</h2>
+            <button id="markAllNotifications" type="button" class="btn btn-secondary" onclick="marcarTodasLeidas()">Marcar todas como leídas</button>
+            <div id="notificationsList" class="dashboard-list"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="reviewModal">
+        <div class="auth-modal app-panel-modal">
+            <button class="close-modal" type="button" onclick="cerrarResena()">×</button>
+            <h2>Califica el servicio</h2>
+            <form id="reviewForm" onsubmit="enviarResena(event)">
+                <input id="reviewRequestId" type="hidden">
+                <label for="reviewRating">Calificación</label>
+                <select id="reviewRating" required>
+                    <option value="5">★★★★★ - Excelente</option>
+                    <option value="4">★★★★ - Muy bueno</option>
+                    <option value="3">★★★ - Bueno</option>
+                    <option value="2">★★ - Regular</option>
+                    <option value="1">★ - Malo</option>
+                </select>
+                <label for="reviewComment">Comentario (opcional)</label>
+                <textarea id="reviewComment" maxlength="1000" rows="4"></textarea>
+                <p id="reviewFeedback" class="profile-feedback" aria-live="polite"></p>
+                <button id="reviewSubmit" type="submit" class="btn btn-primary auth-button">Publicar reseña</button>
+            </form>
+        </div>
+    </div>
+
+
     <!-- LIBRERÍA DEL MAPA Y JAVASCRIPT -->
 
     <script src="script.js"></script>
     <script src="perfil-profesional.js"></script>
+    <script src="interacciones.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+    <script src="mapa.js"></script>
 
 </body>
 

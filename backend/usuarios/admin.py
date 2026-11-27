@@ -1,6 +1,13 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import PerfilProfesional, Usuario
+from .models import (
+    Notificacion,
+    PerfilProfesional,
+    Resena,
+    SolicitudServicio,
+    TrabajoProfesional,
+    Usuario,
+)
 
 
 @admin.register(Usuario)
@@ -32,3 +39,29 @@ class PerfilProfesionalAdmin(admin.ModelAdmin):
     list_display = ('oficio', 'categoria', 'ubicacion', 'usuario', 'actualizado')
     list_filter = ('categoria', 'telefono_publico')
     search_fields = ('oficio', 'servicios', 'ubicacion', 'usuario__email')
+
+
+@admin.register(TrabajoProfesional)
+class TrabajoProfesionalAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'perfil', 'creado')
+    search_fields = ('titulo', 'perfil__oficio', 'perfil__usuario__email')
+
+
+@admin.register(SolicitudServicio)
+class SolicitudServicioAdmin(admin.ModelAdmin):
+    list_display = ('servicio', 'cliente', 'profesional', 'estado', 'fecha_solicitada')
+    list_filter = ('estado',)
+    search_fields = ('servicio', 'cliente__email', 'profesional__usuario__email')
+
+
+@admin.register(Resena)
+class ResenaAdmin(admin.ModelAdmin):
+    list_display = ('solicitud', 'calificacion', 'creado')
+    list_filter = ('calificacion',)
+
+
+@admin.register(Notificacion)
+class NotificacionAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'tipo', 'leida', 'creado')
+    list_filter = ('tipo', 'leida')
+    search_fields = ('usuario__email', 'mensaje')

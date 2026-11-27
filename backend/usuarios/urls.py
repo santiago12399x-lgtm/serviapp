@@ -1,11 +1,19 @@
 from django.urls import path
 from .views import (
+    CambiarSolicitudServicioView,
+    CrearResenaView,
     DetalleProfesionalPublicoView,
+    EliminarTrabajoView,
     ListaProfesionalesView,
     LoginView,
+    MarcarNotificacionLeidaView,
     MiPerfilProfesionalView,
+    MisTrabajosView,
+    NotificacionesView,
     PerfilUsuarioView,
     RegistroUsuarioView,
+    SolicitudesServicioView,
+    TrabajosProfesionalPublicosView,
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -20,4 +28,12 @@ urlpatterns = [
     path('perfil-profesional/', MiPerfilProfesionalView.as_view(), name='mi-perfil-profesional'),
     path('profesionales/', ListaProfesionalesView.as_view(), name='lista-profesionales'),
     path('profesionales/<int:pk>/', DetalleProfesionalPublicoView.as_view(), name='detalle-profesional'),
+    path('profesionales/<int:perfil_id>/trabajos/', TrabajosProfesionalPublicosView.as_view(), name='trabajos-profesional-publicos'),
+    path('perfil-profesional/trabajos/', MisTrabajosView.as_view(), name='mis-trabajos-profesionales'),
+    path('perfil-profesional/trabajos/<int:pk>/', EliminarTrabajoView.as_view(), name='eliminar-trabajo-profesional'),
+    path('solicitudes/', SolicitudesServicioView.as_view(), name='solicitudes-servicio'),
+    path('solicitudes/<int:pk>/', CambiarSolicitudServicioView.as_view(), name='cambiar-solicitud-servicio'),
+    path('resenas/', CrearResenaView.as_view(), name='crear-resena'),
+    path('notificaciones/', NotificacionesView.as_view(), name='notificaciones'),
+    path('notificaciones/<int:pk>/', MarcarNotificacionLeidaView.as_view(), name='marcar-notificacion-leida'),
 ]
