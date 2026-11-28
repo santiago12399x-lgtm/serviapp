@@ -156,6 +156,6 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'arcade_score': '8/hour',
+        'arcade_score': '10/minute',
     },
 }

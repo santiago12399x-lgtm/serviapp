@@ -23,10 +23,14 @@ class PuntuacionArcadeSerializer(serializers.ModelSerializer):
         fields = ['puntuacion', 'servicios_completados', 'duracion_segundos', 'modo']
 
     def validate(self, attrs):
-        puntaje_maximo_razonable = attrs['servicios_completados'] * 2500 + 250
+        puntaje_maximo_razonable = min(
+            25000,
+            attrs['duracion_segundos'] * 130,
+            attrs['servicios_completados'] * 1200,
+        )
         if attrs['puntuacion'] > puntaje_maximo_razonable:
             raise serializers.ValidationError({
-                'puntuacion': 'El puntaje no coincide con la cantidad de servicios reportada.'
+                'puntuacion': 'El puntaje supera el máximo razonable para la duración y los servicios reportados.'
             })
         return attrs
 

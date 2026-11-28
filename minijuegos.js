@@ -1,6 +1,6 @@
 import { calcularPuntajeServicio, calcularTiempoTrabajo, encontrarRutaCalles, fechaActualBogota } from "./arcade-engine.js";
 import { crearBucleRender, renderizarClasificacion, renderizarVidas } from "./arcade-renderer.js";
-import { instalarControlesArcade } from "./arcade-controls.js";
+import { instalarControlesArcade, instalarControlesMapa } from "./arcade-controls.js";
 
 // El Caos del Barrio: datos locales; el backend solo recibe puntajes autenticados.
 const ANCHO_MUNDO = 1000;
@@ -60,7 +60,7 @@ function cargarProgreso() {
             mejoras: { velocidad: 0, herramientas: 0, pintora: false, mensajero: false, ...(guardado.mejoras || {}) },
         };
     } catch (_error) {
-        return { monedas: 0, xp: 0, record: 0, mejoras: { velocidad: 0, herramientas: 0, pintora: false, mensajero: false } };
+        return { monedas: 0, xp: 0, record: 0, retosDiarios: {}, mejoras: { velocidad: 0, herramientas: 0, pintora: false, mensajero: false } };
     }
 }
 
@@ -72,7 +72,6 @@ let ultimaActualizacionPanel = 0;
 let temporizadorToast = 0;
 let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 let escalaCanvas = 1;
-let arrastre = null;
 const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let retoDiarioPendiente = false;
 let sonidoActivo = false;
@@ -263,7 +262,7 @@ function tonoArcade(tipo = "ok") {
         const oscilador = contextoSonido.createOscillator();
         const volumen = contextoSonido.createGain();
         const ahora = contextoSonido.currentTime;
-        const tonos = { select: [520, 760], assign: [310, 560], complete: [660, 990], expire: [270, 140], coin: [820, 1180] }[tipo] || [440, 660];
+        const tonos = { select: [520, 760], assign: [310, 560], complete: [660, 990], expire: [270, 140], coin: [820, 1180], level: [540, 1080], gameover: [360, 120] }[tipo] || [440, 660];
         oscilador.type = "square";
         oscilador.frequency.setValueAtTime(tonos[0], ahora);
         oscilador.frequency.exponentialRampToValueAtTime(tonos[1], ahora + .1);
@@ -371,6 +370,7 @@ function iniciarTurno() {
         activa: true, pausada: false, finalizada: false,
         transcurrido: 0, restante: DURACION_TURNO,
         puntuacion: 0, monedas: 0, reputacion: 100, vidas: 5,
+        nivel: 1, particulas: [], temblorRestante: 0,
         retoDiario: retoDiarioPendiente, objetivoDiario: 8,
         completados: 0, vencidos: 0, combo: 0, mejorCombo: 0,
         ultimaCompletada: -99, bonusAgradecimiento: 0,
@@ -519,6 +519,7 @@ function animarDesplazamiento(trabajador, delta) {
 function completarAviso(trabajador, aviso) {
     const coincide = trabajador.especialidad === aviso.servicio.id;
     const comboAnterior = partida.combo;
+    const rapidez = Math.max(0, Math.round(aviso.tiempo * 2.1));
     let monedas = Math.round(aviso.recompensa * (coincide ? 1.2 : .9) + Math.min(30, rapidez / 2));
     if (partida.evento?.id === "market") monedas = Math.round(monedas * 1.15);
     monedas += partida.bonusAgradecimiento;
@@ -537,6 +538,8 @@ function completarAviso(trabajador, aviso) {
     tonoArcade("complete");
     partida.puntuacion += puntos;
     partida.monedas += monedas;
+    crearParticulas(EDIFICIOS[aviso.edificioId].x, EDIFICIOS[aviso.edificioId].y - 32, aviso.servicio.color);
+    animarPuntaje();
     aviso.estado = "done";
     aviso.completadoHasta = partida.transcurrido + 3.5;
     trabajador.estado = "idle";
@@ -552,6 +555,38 @@ function completarAviso(trabajador, aviso) {
     actualizarHUD();
 }
 
+function crearParticulas(x, y, color) {
+    if (movimientoReducido) return;
+    for (let indice = 0; indice < 14; indice += 1) {
+        const angulo = (Math.PI * 2 * indice) / 14 + Math.random() * .25;
+        const rapidez = 28 + Math.random() * 46;
+        partida.particulas.push({
+            x, y,
+            vx: Math.cos(angulo) * rapidez,
+            vy: Math.sin(angulo) * rapidez - 16,
+            vida: .55 + Math.random() * .35,
+            vidaTotal: .9,
+            radio: 2 + Math.random() * 2.5,
+            color,
+        });
+    }
+}
+
+function animarPuntaje() {
+    if (movimientoReducido) return;
+    const puntaje = document.getElementById("scoreValue");
+    puntaje.classList.remove("score-jump");
+    void puntaje.offsetWidth;
+    puntaje.classList.add("score-jump");
+}
+
+function animarPerdidaDeVida() {
+    if (movimientoReducido) return;
+    ui.game.classList.remove("life-shake");
+    void ui.game.offsetWidth;
+    ui.game.classList.add("life-shake");
+}
+
 function expirarAviso(aviso) {
     if (aviso.estado === "done") return;
     const trabajador = partida.equipo.find((persona) => persona.id === aviso.trabajadorId);
@@ -562,6 +597,8 @@ function expirarAviso(aviso) {
     partida.reputacion = Math.max(0, partida.reputacion - penalizacion);
     partida.vencidos += 1;
     partida.vidas = Math.max(0, partida.vidas - 1);
+    partida.temblorRestante = movimientoReducido ? 0 : .24;
+    animarPerdidaDeVida();
     tonoArcade("expire");
     partida.puntuacion = Math.max(0, partida.puntuacion - 25);
     partida.combo = 0;
@@ -599,6 +636,24 @@ function actualizarPartida(delta) {
     if (!partida?.activa || partida.pausada || partida.finalizada) return;
     partida.transcurrido += delta;
     partida.restante = Math.max(0, DURACION_TURNO - partida.transcurrido);
+    partida.temblorRestante = Math.max(0, partida.temblorRestante - delta);
+    partida.particulas = partida.particulas.filter((particula) => {
+        particula.vida -= delta;
+        particula.x += particula.vx * delta;
+        particula.y += particula.vy * delta;
+        particula.vy += 38 * delta;
+        return particula.vida > 0;
+    });
+    const nivelNuevo = Math.min(5, 1 + Math.floor(partida.transcurrido / 36));
+    if (nivelNuevo > partida.nivel) {
+        partida.nivel = nivelNuevo;
+        tonoArcade("level");
+        mostrarToast(`¡Nivel ${partida.nivel}! Llegan más avisos difíciles.`);
+        const indicadorNivel = document.getElementById("levelValue");
+        indicadorNivel.classList.remove("level-up");
+        void indicadorNivel.offsetWidth;
+        indicadorNivel.classList.add("level-up");
+    }
     partida.siguienteAviso -= delta;
     if (partida.siguienteAviso <= 0) {
         const pendientes = partida.avisos.filter((aviso) => aviso.estado === "pending" || aviso.estado === "assigned" || aviso.estado === "working").length;
@@ -660,6 +715,7 @@ function actualizarHUD() {
     document.getElementById("timerValue").textContent = `${String(Math.floor(partida.restante / 60)).padStart(2, "0")}:${String(Math.floor(partida.restante % 60)).padStart(2, "0")}`;
     document.getElementById("scoreValue").textContent = formatoMoneda(partida.puntuacion);
     document.getElementById("roundCoinsValue").textContent = formatoMoneda(partida.monedas);
+    document.getElementById("levelValue").textContent = String(partida.nivel);
     document.getElementById("reputationValue").textContent = `${Math.round(partida.reputacion)}%`;
     const barra = document.getElementById("reputationBar");
     barra.style.width = `${partida.reputacion}%`;
@@ -849,6 +905,10 @@ function dibujarBarrio(tiempo) {
     if (!ui.ctx || ui.game.hidden) return;
     const ctx = ui.ctx;
     ctx.setTransform(pixelRatio * escalaCanvas, 0, 0, pixelRatio * escalaCanvas, 0, 0);
+    if (!movimientoReducido && partida?.temblorRestante > 0) {
+        const fuerza = partida.temblorRestante / .24 * 7;
+        ctx.translate((Math.random() - .5) * fuerza, (Math.random() - .5) * fuerza);
+    }
     dibujarCalle(ctx);
     EDIFICIOS.forEach((edificio) => dibujarEdificio(ctx, edificio));
     const coloresAutos = ["#e9a146", "#d65f58", "#5d8ec3", "#f0e8cf", "#50a38a"];
@@ -907,6 +967,14 @@ function dibujarBarrio(tiempo) {
             ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("✓", edificio.x, edificio.y - 39 - (1 - alpha) * 16); ctx.globalAlpha = 1;
         });
         if (partida.evento?.id === "rain") dibujarLluvia(ctx, tiempo);
+        partida.particulas.forEach((particula) => {
+            ctx.globalAlpha = Math.max(0, particula.vida / particula.vidaTotal);
+            ctx.fillStyle = particula.color;
+            ctx.beginPath();
+            ctx.arc(particula.x, particula.y, particula.radio, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -918,11 +986,6 @@ function dibujarLluvia(ctx, tiempo) {
         ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 10); ctx.stroke();
     }
     ctx.restore();
-}
-
-function puntoCanvas(evento) {
-    const rect = ui.canvas.getBoundingClientRect();
-    return { x: (evento.clientX - rect.left) / rect.width * ANCHO_MUNDO, y: (evento.clientY - rect.top) / rect.height * ALTO_MUNDO };
 }
 
 function trabajadorEnPunto(punto) {
@@ -939,53 +1002,13 @@ function avisoEnPunto(punto) {
     });
 }
 
-function instalarControlesMapa() {
-    ui.canvas.addEventListener("pointerdown", (evento) => {
-        if (!partida?.activa || partida.pausada) return;
-        const punto = puntoCanvas(evento);
-        const trabajador = trabajadorEnPunto(punto);
-        arrastre = trabajador ? { trabajadorId: trabajador.id, inicio: punto, movido: false } : null;
-        if (trabajador) {
-            partida.seleccionTrabajador = trabajador.id;
-            ui.canvas.setPointerCapture(evento.pointerId);
-        }
-    });
-    ui.canvas.addEventListener("pointermove", (evento) => {
-        if (!arrastre) return;
-        const punto = puntoCanvas(evento);
-        if (Math.hypot(punto.x - arrastre.inicio.x, punto.y - arrastre.inicio.y) > 13) arrastre.movido = true;
-    });
-    ui.canvas.addEventListener("pointerup", (evento) => {
-        if (!partida?.activa || partida.pausada) return;
-        const punto = puntoCanvas(evento);
-        if (arrastre?.trabajadorId) {
-            const idTrabajador = arrastre.trabajadorId;
-            const desplazo = arrastre.movido;
-            arrastre = null;
-            if (desplazo) {
-                const aviso = avisoEnPunto(punto);
-                if (aviso) asignarAviso(partida.equipo.find((persona) => persona.id === idTrabajador), aviso);
-                else document.getElementById("selectionStatus").textContent = "Suelta al trabajador sobre un aviso del mapa.";
-            } else seleccionarTrabajador(idTrabajador);
-            return;
-        }
-        const aviso = avisoEnPunto(punto);
-        if (aviso) seleccionarAviso(aviso.id);
-    });
-    ui.canvas.addEventListener("pointercancel", () => { arrastre = null; });
-    ui.canvas.addEventListener("pointermove", (evento) => {
-        if (arrastre) return;
-        const punto = puntoCanvas(evento);
-        ui.canvas.style.cursor = trabajadorEnPunto(punto) || avisoEnPunto(punto) ? "pointer" : "default";
-    });
-}
-
 function finalizarPartida(motivo) {
     if (!partida || partida.finalizada) return;
     partida.finalizada = true;
     partida.activa = false;
     partida.pausada = false;
     buclePartida?.detener();
+    tonoArcade("gameover");
     const retoSuperado = partida.retoDiario && partida.completados >= partida.objetivoDiario;
     const experiencia = partida.completados * 32 + Math.floor(partida.puntuacion / 25) + (retoSuperado ? 100 : 0);
     const monedasFinales = partida.monedas + (retoSuperado ? 150 : 0);
@@ -1090,7 +1113,20 @@ ui.overlay.addEventListener("click", (evento) => { if (evento.target === ui.over
 
 window.addEventListener("resize", ajustarCanvas);
 if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(ui.canvas);
-instalarControlesMapa();
+instalarControlesMapa({
+    canvas: ui.canvas,
+    obtenerPartida: () => partida,
+    convertirPunto: (evento) => {
+        const rect = ui.canvas.getBoundingClientRect();
+        return { x: (evento.clientX - rect.left) / rect.width * ANCHO_MUNDO, y: (evento.clientY - rect.top) / rect.height * ALTO_MUNDO };
+    },
+    trabajadorEnPunto,
+    avisoEnPunto,
+    seleccionarTrabajador,
+    seleccionarAviso,
+    asignarAviso,
+    actualizarMensaje: (mensaje) => { document.getElementById("selectionStatus").textContent = mensaje; },
+});
 actualizarPantallaInicio();
 actualizarRetoDiario();
 document.getElementById("leaderboardMode").addEventListener("change", cargarClasificacion);

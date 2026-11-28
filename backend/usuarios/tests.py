@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -168,6 +169,7 @@ class PerfilProfesionalTests(TestCase):
 
 class PuntuacionesArcadeTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.jugador = Usuario.objects.create_user(
             email='jugador@example.com', password='ClaveSegura!2026', first_name='Ada', last_name='Lovelace'
         )
@@ -198,6 +200,8 @@ class PuntuacionesArcadeTests(TestCase):
             {'puntuacion': 100001, 'servicios_completados': 3, 'duracion_segundos': 90, 'modo': 'normal'},
             {'puntuacion': 8000, 'servicios_completados': 1, 'duracion_segundos': 90, 'modo': 'normal'},
             {'puntuacion': 100, 'servicios_completados': 1, 'duracion_segundos': 181, 'modo': 'normal'},
+            {'puntuacion': 5000, 'servicios_completados': 8, 'duracion_segundos': 20, 'modo': 'normal'},
+            {'puntuacion': 1, 'servicios_completados': 0, 'duracion_segundos': 90, 'modo': 'normal'},
             {'puntuacion': 100, 'servicios_completados': 1, 'duracion_segundos': 90, 'modo': 'otro'},
         ]
         for datos in casos_invalidos:
@@ -205,6 +209,19 @@ class PuntuacionesArcadeTests(TestCase):
                 respuesta = self.client.post(self.url, datos, format='json')
                 self.assertEqual(respuesta.status_code, 400)
         self.assertEqual(PuntuacionArcade.objects.count(), 0)
+
+    def test_limita_envios_a_diez_por_minuto_por_usuario(self):
+        self.client.force_authenticate(user=self.jugador)
+        datos = {
+            'puntuacion': 900,
+            'servicios_completados': 2,
+            'duracion_segundos': 90,
+            'modo': 'normal',
+        }
+        for _ in range(10):
+            self.assertEqual(self.client.post(self.url, datos, format='json').status_code, 201)
+        limitada = self.client.post(self.url, datos, format='json')
+        self.assertEqual(limitada.status_code, 429)
 
     def test_clasificacion_es_publica_semanal_y_muestra_mejor_puntaje_por_jugador(self):
         PuntuacionArcade.objects.create(
