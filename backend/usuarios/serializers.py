@@ -214,7 +214,7 @@ class CrearResenaSerializer(serializers.ModelSerializer):
 class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notificacion
-        fields = ['id', 'tipo', 'mensaje', 'solicitud', 'leida', 'creado']
+        fields = ['id', 'titulo', 'tipo', 'mensaje', 'destino', 'solicitud', 'leida', 'creado']
         read_only_fields = fields
 
 

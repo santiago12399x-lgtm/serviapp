@@ -13,6 +13,7 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import (
     Notificacion,
+    PreferenciaNotificacion,
     PuntuacionArcade,
     PerfilProfesional,
     Resena,
@@ -32,6 +33,8 @@ from .serializers import (
     TrabajoProfesionalSerializer,
     UsuarioSerializer,
 )
+from .estados import transiciones_solicitud_para
+from .notificaciones import crear_notificacion
 
 
 class PuntuacionesArcadeView(APIView):
@@ -256,10 +259,11 @@ class SolicitudesServicioView(APIView):
         with transaction.atomic():
             solicitud = serializer.save(cliente=request.user)
             nombre = f'{request.user.first_name} {request.user.last_name}'.strip() or 'Un cliente'
-            Notificacion.objects.create(
+            crear_notificacion(
                 usuario=perfil.usuario,
                 solicitud=solicitud,
                 tipo=Notificacion.Tipo.NUEVA_SOLICITUD,
+                titulo='Nueva solicitud de servicio',
                 mensaje=f'{nombre} solicitó: {solicitud.servicio}.',
             )
         return Response(
@@ -277,45 +281,43 @@ class CambiarSolicitudServicioView(APIView):
             pk=pk,
         )
         nuevo_estado = request.data.get('estado')
-        if request.user.id == solicitud.profesional.usuario_id:
-            transiciones = {
-                SolicitudServicio.Estado.PENDIENTE: {
-                    SolicitudServicio.Estado.ACEPTADA,
-                    SolicitudServicio.Estado.RECHAZADA,
-                },
-                SolicitudServicio.Estado.ACEPTADA: {SolicitudServicio.Estado.COMPLETADA},
-            }
-            destinatario = solicitud.cliente
-        elif request.user.id == solicitud.cliente_id:
-            transiciones = {
-                SolicitudServicio.Estado.PENDIENTE: {SolicitudServicio.Estado.CANCELADA},
-                SolicitudServicio.Estado.ACEPTADA: {SolicitudServicio.Estado.CANCELADA},
-            }
-            destinatario = solicitud.profesional.usuario
-        else:
+        permitidos = transiciones_solicitud_para(request.user, solicitud)
+        if permitidos is None:
             raise PermissionDenied('No puedes modificar esta solicitud.')
 
-        permitidos = transiciones.get(solicitud.estado, set())
+        if request.user.id == solicitud.profesional.usuario_id:
+            destinatario = solicitud.cliente
+        else:
+            destinatario = solicitud.profesional.usuario
+
         if nuevo_estado not in permitidos:
             return Response(
                 {'detail': 'Ese cambio de estado no está permitido.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        solicitud.estado = nuevo_estado
-        solicitud.save(update_fields=['estado', 'actualizado'])
         tipos = {
             SolicitudServicio.Estado.ACEPTADA: Notificacion.Tipo.SOLICITUD_ACEPTADA,
             SolicitudServicio.Estado.RECHAZADA: Notificacion.Tipo.SOLICITUD_RECHAZADA,
             SolicitudServicio.Estado.COMPLETADA: Notificacion.Tipo.SOLICITUD_COMPLETADA,
             SolicitudServicio.Estado.CANCELADA: Notificacion.Tipo.SOLICITUD_CANCELADA,
         }
-        Notificacion.objects.create(
-            usuario=destinatario,
-            solicitud=solicitud,
-            tipo=tipos[nuevo_estado],
-            mensaje=f'La solicitud "{solicitud.servicio}" ahora está {solicitud.get_estado_display().lower()}.',
-        )
+        titulos = {
+            SolicitudServicio.Estado.ACEPTADA: 'Solicitud aceptada',
+            SolicitudServicio.Estado.RECHAZADA: 'Solicitud rechazada',
+            SolicitudServicio.Estado.COMPLETADA: 'Servicio completado',
+            SolicitudServicio.Estado.CANCELADA: 'Solicitud cancelada',
+        }
+        with transaction.atomic():
+            solicitud.estado = nuevo_estado
+            solicitud.save(update_fields=['estado', 'actualizado'])
+            crear_notificacion(
+                usuario=destinatario,
+                solicitud=solicitud,
+                tipo=tipos[nuevo_estado],
+                titulo=titulos[nuevo_estado],
+                mensaje=f'La solicitud "{solicitud.servicio}" ahora está {solicitud.get_estado_display().lower()}.',
+            )
         return Response(SolicitudServicioSerializer(solicitud).data)
 
 
@@ -338,10 +340,11 @@ class CrearResenaView(APIView):
         with transaction.atomic():
             resena = serializer.save()
             nombre = f'{request.user.first_name} {request.user.last_name}'.strip() or 'Un cliente'
-            Notificacion.objects.create(
+            crear_notificacion(
                 usuario=solicitud.profesional.usuario,
                 solicitud=solicitud,
                 tipo=Notificacion.Tipo.NUEVA_RESENA,
+                titulo='Nueva calificación',
                 mensaje=f'{nombre} dejó una reseña sobre {solicitud.servicio}.',
             )
         return Response(
@@ -360,6 +363,45 @@ class NotificacionesView(APIView):
     def post(self, request):
         Notificacion.objects.filter(usuario=request.user, leida=False).update(leida=True)
         return Response({'detail': 'Notificaciones marcadas como leídas.'})
+
+
+class PreferenciasNotificacionesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def _serializar(self, usuario):
+        guardadas = dict(
+            PreferenciaNotificacion.objects.filter(usuario=usuario).values_list('tipo', 'activada')
+        )
+        return [
+            {'tipo': tipo, 'nombre': nombre, 'activada': guardadas.get(tipo, True)}
+            for tipo, nombre in Notificacion.Tipo.choices
+        ]
+
+    def get(self, request):
+        return Response({'preferencias': self._serializar(request.user)})
+
+    def patch(self, request):
+        if not isinstance(request.data, dict):
+            return Response({'detail': 'Envía un objeto con las preferencias por tipo.'}, status=status.HTTP_400_BAD_REQUEST)
+        cambios = request.data.get('preferencias')
+        if not isinstance(cambios, dict) or not cambios:
+            return Response({'detail': 'Indica al menos una preferencia para actualizar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        tipos_validos = {tipo for tipo, _nombre in Notificacion.Tipo.choices}
+        tipos_desconocidos = set(cambios) - tipos_validos
+        if tipos_desconocidos:
+            return Response({'detail': 'Hay tipos de notificación desconocidos.'}, status=status.HTTP_400_BAD_REQUEST)
+        if any(type(activada) is not bool for activada in cambios.values()):
+            return Response({'detail': 'Cada preferencia debe ser verdadera o falsa.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            for tipo, activada in cambios.items():
+                PreferenciaNotificacion.objects.update_or_create(
+                    usuario=request.user,
+                    tipo=tipo,
+                    defaults={'activada': activada},
+                )
+        return Response({'preferencias': self._serializar(request.user)})
 
 
 class MarcarNotificacionLeidaView(APIView):

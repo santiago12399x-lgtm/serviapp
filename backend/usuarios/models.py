@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
+from .estados import EstadoSolicitud
 
 
 VALIDAR_FOTO = FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])
@@ -113,12 +114,7 @@ class TrabajoProfesional(models.Model):
 
 
 class SolicitudServicio(models.Model):
-    class Estado(models.TextChoices):
-        PENDIENTE = 'pendiente', 'Pendiente'
-        ACEPTADA = 'aceptada', 'Aceptada'
-        RECHAZADA = 'rechazada', 'Rechazada'
-        COMPLETADA = 'completada', 'Completada'
-        CANCELADA = 'cancelada', 'Cancelada'
+    Estado = EstadoSolicitud
 
     cliente = models.ForeignKey(
         Usuario,
@@ -176,6 +172,14 @@ class Notificacion(models.Model):
         SOLICITUD_COMPLETADA = 'solicitud_completada', 'Solicitud completada'
         SOLICITUD_CANCELADA = 'solicitud_cancelada', 'Solicitud cancelada'
         NUEVA_RESENA = 'nueva_resena', 'Nueva reseña'
+        CONTRATO_GENERADO = 'contrato_generado', 'Contrato generado'
+        MENSAJE_NUEVO = 'mensaje_nuevo', 'Mensaje nuevo'
+        RECORDATORIO_SERVICIO = 'recordatorio_servicio', 'Recordatorio de servicio'
+        REPORTE_GESTIONADO = 'reporte_gestionado', 'Reporte gestionado'
+        DISPUTA_RESUELTA = 'disputa_resuelta', 'Disputa resuelta'
+
+    class Destino(models.TextChoices):
+        SOLICITUDES = 'solicitudes', 'Solicitudes'
 
     usuario = models.ForeignKey(
         Usuario,
@@ -189,8 +193,10 @@ class Notificacion(models.Model):
         blank=True,
         null=True,
     )
+    titulo = models.CharField(max_length=120, default='Notificación')
     tipo = models.CharField(max_length=24, choices=Tipo.choices)
     mensaje = models.CharField(max_length=240)
+    destino = models.CharField(max_length=32, choices=Destino.choices, default=Destino.SOLICITUDES)
     leida = models.BooleanField(default=False)
     creado = models.DateTimeField(auto_now_add=True)
 
@@ -198,7 +204,28 @@ class Notificacion(models.Model):
         ordering = ['-creado', '-id']
 
     def __str__(self):
-        return f'{self.usuario.email}: {self.mensaje}'
+        return f'{self.usuario.email}: {self.titulo}'
+
+
+class PreferenciaNotificacion(models.Model):
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='preferencias_notificacion',
+    )
+    tipo = models.CharField(max_length=24, choices=Notificacion.Tipo.choices)
+    activada = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['usuario', 'tipo'],
+                name='notificacion_preferencia_usuario_tipo_unica',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.usuario.email}: {self.tipo} ({self.activada})'
 
 
 class PuntuacionArcade(models.Model):

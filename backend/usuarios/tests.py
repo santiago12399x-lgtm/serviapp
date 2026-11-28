@@ -5,7 +5,14 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import PerfilProfesional, PuntuacionArcade, Usuario
+from .models import (
+    Notificacion,
+    PerfilProfesional,
+    PuntuacionArcade,
+    PreferenciaNotificacion,
+    SolicitudServicio,
+    Usuario,
+)
 
 
 class AutenticacionTests(TestCase):
@@ -246,3 +253,146 @@ class PuntuacionesArcadeTests(TestCase):
         ])
         diaria = self.client.get('/api/usuarios/arcade/clasificacion/?modo=diario')
         self.assertEqual(diaria.data['clasificacion'][0]['nombre'], 'Grace')
+
+
+class NotificacionPreferenciasTests(TestCase):
+    def setUp(self):
+        self.profesional = Usuario.objects.create_user(
+            email='notifica-pro@example.com', password='ClaveSegura!2026',
+            first_name='Laura', es_trabajador=True,
+        )
+        self.cliente = Usuario.objects.create_user(
+            email='notifica-cliente@example.com', password='ClaveSegura!2026',
+            first_name='Carlos',
+        )
+        self.otro = Usuario.objects.create_user(
+            email='notifica-otro@example.com', password='ClaveSegura!2026',
+            first_name='Otro',
+        )
+        self.perfil = PerfilProfesional.objects.create(
+            usuario=self.profesional,
+            categoria='hogar',
+            oficio='Plomería',
+            servicios='Reparaciones',
+            descripcion='Atención residencial.',
+            ubicacion='Bogotá',
+            disponibilidad='Todos los días',
+        )
+        self.solicitud = SolicitudServicio.objects.create(
+            cliente=self.cliente,
+            profesional=self.perfil,
+            servicio='Reparar un grifo',
+            descripcion='El grifo gotea.',
+            ubicacion='Bogotá',
+            fecha_solicitada=timezone.now() + timedelta(days=1),
+        )
+        self.client_api = APIClient()
+        self.url = '/api/usuarios/notificaciones/'
+
+    def test_notificacion_persistida_incluye_titulo_destino_y_solo_la_ve_su_dueno(self):
+        self.client_api.force_authenticate(user=self.cliente)
+        respuesta = self.client_api.get(self.url)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.data, [])
+
+        self.client_api.force_authenticate(user=self.profesional)
+        self.client_api.post('/api/usuarios/solicitudes/', {
+            'profesional': self.perfil.id,
+            'servicio': 'Reparar una ducha',
+            'descripcion': 'Pierde agua.',
+            'ubicacion': 'Bogotá',
+            'fecha_solicitada': (timezone.now() + timedelta(days=2)).isoformat(),
+        }, format='json')
+        # Las cuentas profesionales no pueden enviar solicitudes a otros profesionales.
+        self.assertEqual(Notificacion.objects.count(), 0)
+
+        self.client_api.force_authenticate(user=self.cliente)
+        creada = self.client_api.post('/api/usuarios/solicitudes/', {
+            'profesional': self.perfil.id,
+            'servicio': 'Reparar una ducha',
+            'descripcion': 'Pierde agua.',
+            'ubicacion': 'Bogotá',
+            'fecha_solicitada': (timezone.now() + timedelta(days=2)).isoformat(),
+        }, format='json')
+        self.assertEqual(creada.status_code, 201)
+
+        self.client_api.force_authenticate(user=self.profesional)
+        notificaciones = self.client_api.get(self.url)
+        self.assertEqual(len(notificaciones.data), 1)
+        self.assertEqual(notificaciones.data[0]['titulo'], 'Nueva solicitud de servicio')
+        self.assertEqual(notificaciones.data[0]['destino'], Notificacion.Destino.SOLICITUDES)
+
+        self.client_api.force_authenticate(user=self.otro)
+        self.assertEqual(self.client_api.get(self.url).data, [])
+
+    def test_preferencia_desactivada_impide_generar_el_aviso_de_ese_tipo(self):
+        self.client_api.force_authenticate(user=self.profesional)
+        preferencias = self.client_api.get(self.url + 'preferencias/')
+        self.assertEqual(preferencias.status_code, 200)
+        self.assertTrue(next(
+            item['activada'] for item in preferencias.data['preferencias']
+            if item['tipo'] == Notificacion.Tipo.NUEVA_SOLICITUD
+        ))
+        actualizadas = self.client_api.patch(
+            self.url + 'preferencias/',
+            {'preferencias': {Notificacion.Tipo.NUEVA_SOLICITUD: False}},
+            format='json',
+        )
+        self.assertEqual(actualizadas.status_code, 200)
+        self.assertFalse(PreferenciaNotificacion.objects.get(
+            usuario=self.profesional,
+            tipo=Notificacion.Tipo.NUEVA_SOLICITUD,
+        ).activada)
+
+        self.client_api.force_authenticate(user=self.cliente)
+        creada = self.client_api.post('/api/usuarios/solicitudes/', {
+            'profesional': self.perfil.id,
+            'servicio': 'Reparar una ducha',
+            'descripcion': 'Pierde agua.',
+            'ubicacion': 'Bogotá',
+            'fecha_solicitada': (timezone.now() + timedelta(days=2)).isoformat(),
+        }, format='json')
+        self.assertEqual(creada.status_code, 201)
+        self.assertEqual(Notificacion.objects.count(), 0)
+
+    def test_transiciones_validas_generan_notificacion_y_otras_se_rechazan(self):
+        self.client_api.force_authenticate(user=self.profesional)
+        aceptada = self.client_api.patch(
+            f'/api/usuarios/solicitudes/{self.solicitud.id}/',
+            {'estado': SolicitudServicio.Estado.ACEPTADA},
+            format='json',
+        )
+        self.assertEqual(aceptada.status_code, 200)
+        self.assertEqual(aceptada.data['estado'], SolicitudServicio.Estado.ACEPTADA)
+        aviso_cliente = Notificacion.objects.get(usuario=self.cliente)
+        self.assertEqual(aviso_cliente.tipo, Notificacion.Tipo.SOLICITUD_ACEPTADA)
+
+        no_permitida = self.client_api.patch(
+            f'/api/usuarios/solicitudes/{self.solicitud.id}/',
+            {'estado': SolicitudServicio.Estado.PENDIENTE},
+            format='json',
+        )
+        self.assertEqual(no_permitida.status_code, 400)
+
+        self.client_api.force_authenticate(user=self.otro)
+        ajena = self.client_api.patch(
+            f'/api/usuarios/solicitudes/{self.solicitud.id}/',
+            {'estado': SolicitudServicio.Estado.CANCELADA},
+            format='json',
+        )
+        self.assertEqual(ajena.status_code, 403)
+
+    def test_rechaza_tipos_y_valores_de_preferencia_invalidos(self):
+        self.client_api.force_authenticate(user=self.cliente)
+        desconocido = self.client_api.patch(
+            self.url + 'preferencias/',
+            {'preferencias': {'tipo_inventado': False}},
+            format='json',
+        )
+        valor_invalido = self.client_api.patch(
+            self.url + 'preferencias/',
+            {'preferencias': {Notificacion.Tipo.NUEVA_RESENA: 'no'}},
+            format='json',
+        )
+        self.assertEqual(desconocido.status_code, 400)
+        self.assertEqual(valor_invalido.status_code, 400)

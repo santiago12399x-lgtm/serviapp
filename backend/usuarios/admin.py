@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     Notificacion,
+    PreferenciaNotificacion,
     PuntuacionArcade,
     PerfilProfesional,
     Resena,
@@ -71,6 +72,13 @@ class ResenaAdmin(admin.ModelAdmin):
 
 @admin.register(Notificacion)
 class NotificacionAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'tipo', 'leida', 'creado')
+    list_display = ('usuario', 'titulo', 'tipo', 'leida', 'creado')
     list_filter = ('tipo', 'leida')
     search_fields = ('usuario__email', 'mensaje')
+
+
+@admin.register(PreferenciaNotificacion)
+class PreferenciaNotificacionAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'tipo', 'activada')
+    list_filter = ('tipo', 'activada')
+    search_fields = ('usuario__email',)

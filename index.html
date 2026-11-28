@@ -831,6 +831,12 @@
             <button class="close-modal" type="button" onclick="cerrarNotificaciones()">×</button>
             <h2>Notificaciones</h2>
             <button id="markAllNotifications" type="button" class="btn btn-secondary" onclick="marcarTodasLeidas()">Marcar todas como leídas</button>
+            <section class="notification-preferences" aria-labelledby="notificationPreferencesTitle">
+                <h3 id="notificationPreferencesTitle">Preferencias</h3>
+                <p>Elige qué tipos de avisos quieres recibir.</p>
+                <div id="notificationPreferences" class="notification-preferences-list"></div>
+                <p id="notificationPreferencesFeedback" class="profile-feedback" aria-live="polite"></p>
+            </section>
             <div id="notificationsList" class="dashboard-list"></div>
         </div>
     </div>

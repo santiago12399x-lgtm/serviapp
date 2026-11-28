@@ -316,7 +316,7 @@ window.abrirNotificaciones = async function () {
         return;
     }
     document.getElementById("notificationsModal").classList.add("show");
-    await cargarNotificaciones();
+    await Promise.all([cargarNotificaciones(), cargarPreferenciasNotificaciones()]);
 };
 
 window.cerrarNotificaciones = function () {
@@ -334,8 +334,15 @@ async function cargarNotificaciones() {
         if (!notificaciones.length) lista.appendChild(crearNodo("p", "worker-empty", "No tienes notificaciones."));
         notificaciones.forEach((notificacion) => {
             const tarjeta = crearNodo("article", "notification-item" + (notificacion.leida ? "" : " unread"));
+            tarjeta.appendChild(crearNodo("strong", "notification-title", notificacion.titulo || "Notificación"));
             tarjeta.appendChild(crearNodo("p", "", notificacion.mensaje));
             tarjeta.appendChild(crearNodo("small", "", new Date(notificacion.creado).toLocaleString("es-CO")));
+            if (notificacion.destino === "solicitudes") {
+                tarjeta.appendChild(botonAccionSolicitud("Ver solicitudes", "btn-secondary", () => {
+                    window.cerrarNotificaciones();
+                    window.abrirPanelSolicitudes();
+                }));
+            }
             if (!notificacion.leida) {
                 tarjeta.appendChild(botonAccionSolicitud("Marcar como leída", "btn-secondary", () => marcarNotificacionLeida(notificacion.id)));
             }
@@ -345,6 +352,53 @@ async function cargarNotificaciones() {
     } catch (error) {
         console.error(error);
         lista.replaceChildren(crearNodo("p", "worker-empty", error.message || "No se pudieron cargar las notificaciones."));
+    }
+}
+
+async function cargarPreferenciasNotificaciones() {
+    const lista = document.getElementById("notificationPreferences");
+    const feedback = document.getElementById("notificationPreferencesFeedback");
+    if (!lista) return;
+    lista.replaceChildren(crearNodo("p", "worker-empty", "Cargando preferencias…"));
+    try {
+        const respuesta = await solicitudAutenticada(API_NOTIFICACIONES + "preferencias/");
+        const resultado = await respuesta.json();
+        if (!respuesta.ok) throw new Error(mensajeErrorApi(resultado, "No se pudieron cargar las preferencias."));
+        lista.replaceChildren();
+        resultado.preferencias.forEach((preferencia) => {
+            const etiqueta = crearNodo("label", "notification-preference");
+            const control = document.createElement("input");
+            control.type = "checkbox";
+            control.checked = preferencia.activada;
+            control.addEventListener("change", () => guardarPreferenciaNotificacion(preferencia.tipo, control));
+            etiqueta.append(control, crearNodo("span", "", preferencia.nombre));
+            lista.appendChild(etiqueta);
+        });
+        feedback.textContent = "Los cambios se guardan automáticamente.";
+    } catch (error) {
+        lista.replaceChildren();
+        feedback.textContent = error.message || "No se pudieron cargar las preferencias.";
+    }
+}
+
+async function guardarPreferenciaNotificacion(tipo, control) {
+    const feedback = document.getElementById("notificationPreferencesFeedback");
+    control.disabled = true;
+    feedback.textContent = "Guardando preferencia…";
+    try {
+        const respuesta = await solicitudAutenticada(API_NOTIFICACIONES + "preferencias/", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ preferencias: { [tipo]: control.checked } }),
+        });
+        const resultado = await respuesta.json();
+        if (!respuesta.ok) throw new Error(mensajeErrorApi(resultado, "No se pudo guardar la preferencia."));
+        feedback.textContent = "Preferencia guardada.";
+    } catch (error) {
+        control.checked = !control.checked;
+        feedback.textContent = error.message || "No se pudo guardar la preferencia.";
+    } finally {
+        control.disabled = false;
     }
 }
 

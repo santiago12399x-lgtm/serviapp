@@ -13,6 +13,7 @@ from .views import (
     NotificacionesView,
     PerfilUsuarioView,
     PuntuacionesArcadeView,
+    PreferenciasNotificacionesView,
     RegistroUsuarioView,
     SolicitudesServicioView,
     TrabajosProfesionalPublicosView,
@@ -39,5 +40,6 @@ urlpatterns = [
     path('solicitudes/<int:pk>/', CambiarSolicitudServicioView.as_view(), name='cambiar-solicitud-servicio'),
     path('resenas/', CrearResenaView.as_view(), name='crear-resena'),
     path('notificaciones/', NotificacionesView.as_view(), name='notificaciones'),
+    path('notificaciones/preferencias/', PreferenciasNotificacionesView.as_view(), name='preferencias-notificaciones'),
     path('notificaciones/<int:pk>/', MarcarNotificacionLeidaView.as_view(), name='marcar-notificacion-leida'),
 ]
