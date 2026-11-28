@@ -213,10 +213,10 @@ class PuntuacionesArcadeTests(TestCase):
         PuntuacionArcade.objects.create(
             usuario=self.jugador, puntuacion=1400, servicios_completados=3, duracion_segundos=120
         )
-        PuntuacionArcade.objects.create(
+        antigua = PuntuacionArcade.objects.create(
             usuario=self.jugador, puntuacion=3000, servicios_completados=5, duracion_segundos=100,
-            creado=timezone.now() - timedelta(days=8),
         )
+        PuntuacionArcade.objects.filter(pk=antigua.pk).update(creado=timezone.now() - timedelta(days=8))
         PuntuacionArcade.objects.create(
             usuario=self.otro_jugador, puntuacion=1100, servicios_completados=2, duracion_segundos=80,
             modo=PuntuacionArcade.Modo.DIARIO,

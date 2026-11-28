@@ -99,8 +99,8 @@
             <div class="game-board-layout">
                 <section class="city-panel" aria-label="Mapa interactivo del barrio">
                     <div class="city-panel-heading"><div><span class="section-kicker">SECTOR CENTRO</span><strong>Un barrio, mil cosas por resolver</strong></div><span class="map-legend"><i class="legend-emergency"></i> Aviso nuevo</span></div>
-                    <div class="city-canvas-wrap"><canvas id="cityCanvas" aria-label="Barrio interactivo. Toca o arrastra un trabajador hasta un aviso para asignarlo."></canvas><div class="canvas-help"><b>1</b> Toca un trabajador <span>→</span> <b>2</b> toca una alerta</div></div>
-                    <div class="keyboard-hint">Teclado: 1–6 equipo · ↑/↓ avisos · Enter asignar · P pausar</div>
+                    <div class="city-canvas-wrap"><canvas id="cityCanvas" tabindex="0" role="img" aria-keyshortcuts="1 2 3 4 5 6 ArrowUp ArrowDown P Escape" aria-label="Barrio interactivo. Toca o arrastra un trabajador hasta un aviso para asignarlo. También puedes usar las teclas indicadas abajo."></canvas><div class="canvas-help"><b>1</b> Toca un trabajador <span>→</span> <b>2</b> toca una alerta</div></div>
+                    <div class="keyboard-hint">Teclado: 1–6 trabajador · ↑/↓ aviso y asignación · P pausar</div>
                     <div class="map-status-row"><span id="selectionStatus" aria-live="polite">Selecciona un trabajador disponible.</span><span id="comboStatus"></span></div>
                 </section>
 
@@ -115,6 +115,6 @@
     <div id="arcadeOverlay" class="arcade-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="overlayTitle"><div id="overlayCard" class="overlay-card"></div></div>
     <div id="toast" class="arcade-toast" role="status" aria-live="polite"></div>
 
-    <script src="minijuegos.js" defer></script>
+    <script type="module" src="minijuegos.js"></script>
 </body>
 </html>

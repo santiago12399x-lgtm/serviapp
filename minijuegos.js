@@ -1,4 +1,8 @@
-// El Caos del Barrio: minijuego autocontenido. No consulta ni modifica la API real.
+import { calcularPuntajeServicio, calcularTiempoTrabajo, encontrarRutaCalles, fechaActualBogota } from "./arcade-engine.js";
+import { crearBucleRender, renderizarClasificacion, renderizarVidas } from "./arcade-renderer.js";
+import { instalarControlesArcade } from "./arcade-controls.js";
+
+// El Caos del Barrio: datos locales; el backend solo recibe puntajes autenticados.
 const ANCHO_MUNDO = 1000;
 const ALTO_MUNDO = 620;
 const CLAVE_PROGRESO_ARCADE = "serviapp-caos-barrio-v1";
@@ -63,13 +67,13 @@ function cargarProgreso() {
 let progreso = cargarProgreso();
 let partida = null;
 let preparacionSeleccionada = "lina";
-let rafPartida = 0;
-let tiempoFrameAnterior = 0;
+let buclePartida = null;
 let ultimaActualizacionPanel = 0;
 let temporizadorToast = 0;
 let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 let escalaCanvas = 1;
 let arrastre = null;
+const movimientoReducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let retoDiarioPendiente = false;
 let sonidoActivo = false;
 let indiceAvisoTeclado = 0;
@@ -181,9 +185,7 @@ function mostrarToast(texto) {
 }
 
 function fechaLocalReto() {
-    const partes = new Intl.DateTimeFormat("en", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-    const porTipo = Object.fromEntries(partes.map(({ type, value }) => [type, value]));
-    return `${porTipo.year}-${porTipo.month}-${porTipo.day}`;
+    return fechaActualBogota();
 }
 
 function actualizarRetoDiario() {
@@ -195,30 +197,15 @@ function actualizarRetoDiario() {
         : "Completa 8 servicios en un turno para ganar +150 monedas y 100 XP.";
 }
 
-function mostrarClasificacion(filas, mensaje = "") {
-    const lista = document.getElementById("arcadeLeaderboard");
-    lista.replaceChildren();
-    if (mensaje || !filas.length) {
-        const item = crearNodo("li", "leaderboard-message", mensaje || "Todavía no hay puntajes esta semana.");
-        lista.appendChild(item);
-        return;
-    }
-    filas.forEach((fila) => {
-        const item = crearNodo("li", "");
-        item.append(crearNodo("span", "", fila.nombre), crearNodo("strong", "", `${formatoMoneda(fila.puntuacion)} PTS`));
-        lista.appendChild(item);
-    });
-}
-
 async function cargarClasificacion() {
     const modo = document.getElementById("leaderboardMode").value;
     try {
         const respuesta = await fetch(`${API_ARCADE}clasificacion/?modo=${encodeURIComponent(modo)}`);
         if (!respuesta.ok) throw new Error("El servidor no devolvió la clasificación.");
         const datos = await respuesta.json();
-        mostrarClasificacion(datos.clasificacion || []);
+        renderizarClasificacion(datos.clasificacion || []);
     } catch (_error) {
-        mostrarClasificacion([], "Inicia el servidor Django para cargar la clasificación.");
+        renderizarClasificacion([], "Inicia el servidor Django para cargar la clasificación.");
     }
 }
 
@@ -294,10 +281,7 @@ function mostrarPantalla(nombre) {
     ui.game.hidden = nombre !== "game";
     if (nombre === "game") {
         ajustarCanvas();
-        if (!rafPartida) {
-            tiempoFrameAnterior = performance.now();
-            rafPartida = requestAnimationFrame(cicloPartida);
-        }
+        buclePartida?.iniciar();
     } else if (nombre === "welcome" || nombre === "prepare") {
         if (partida?.activa) partida.activa = false;
         cancelarCicloPartida();
@@ -305,19 +289,18 @@ function mostrarPantalla(nombre) {
 }
 
 function cancelarCicloPartida() {
-    if (rafPartida) cancelAnimationFrame(rafPartida);
-    rafPartida = 0;
+    buclePartida?.detener();
 }
 
 function hacerAvatarCanvas(ctx, x, y, persona, tiempo, seleccionado, estado) {
-    const paso = estado === "traveling" ? Math.sin(tiempo * 13 + x) * 2.6 : estado === "working" ? Math.sin(tiempo * 17 + y) * 1.3 : Math.sin(tiempo * 2 + x) * .7;
+    const paso = movimientoReducido ? 0 : estado === "traveling" ? Math.sin(tiempo * 13 + x) * 2.6 : estado === "working" ? Math.sin(tiempo * 17 + y) * 1.3 : Math.sin(tiempo * 2 + x) * .7;
     ctx.save();
     ctx.translate(x, y + paso);
     ctx.scale(1.42, 1.42);
     ctx.fillStyle = "#1c2b3880";
     ctx.beginPath(); ctx.ellipse(0, 11, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
     if (seleccionado) {
-        const pulso = 1 + Math.sin(tiempo * 5) * .08;
+        const pulso = movimientoReducido ? 1 : 1 + Math.sin(tiempo * 5) * .08;
         ctx.globalAlpha = .28; ctx.fillStyle = "#ffe16a"; ctx.beginPath(); ctx.ellipse(0, 4, 24 * pulso, 19 * pulso, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
         ctx.strokeStyle = "#ffe16a"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 8, 20 * pulso, 10 * pulso, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = "#f6d45c"; ctx.beginPath(); ctx.arc(0, -31, 3.6, 0, Math.PI * 2); ctx.fill();
@@ -402,7 +385,6 @@ function iniciarTurno() {
     agregarAviso();
     renderizarPaneles();
     actualizarHUD();
-    tiempoFrameAnterior = performance.now();
 }
 
 function agregarAviso(servicioForzado = null) {
@@ -446,42 +428,11 @@ function indiceMasCercano(eje, valor) {
     return mejor;
 }
 
-function claveNodo(nodo) { return `${nodo.columna},${nodo.fila}`; }
-
-function encontrarRutaCalles(inicio, fin) {
-    const abiertos = [inicio];
-    const desde = new Map();
-    const costos = new Map([[claveNodo(inicio), 0]]);
-    const estimar = (nodo) => Math.abs(nodo.columna - fin.columna) + Math.abs(nodo.fila - fin.fila);
-    const vecinos = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    while (abiertos.length) {
-        abiertos.sort((a, b) => (costos.get(claveNodo(a)) + estimar(a)) - (costos.get(claveNodo(b)) + estimar(b)));
-        const actual = abiertos.shift();
-        if (actual.columna === fin.columna && actual.fila === fin.fila) {
-            const ruta = [actual];
-            let cursor = claveNodo(actual);
-            while (desde.has(cursor)) { const previo = desde.get(cursor); ruta.unshift(previo); cursor = claveNodo(previo); }
-            return ruta;
-        }
-        vecinos.forEach(([dc, dr]) => {
-            const siguiente = { columna: actual.columna + dc, fila: actual.fila + dr };
-            if (siguiente.columna < 0 || siguiente.columna >= EJES_CALLE_X.length || siguiente.fila < 0 || siguiente.fila >= EJES_CALLE_Y.length) return;
-            const costo = costos.get(claveNodo(actual)) + 1;
-            const key = claveNodo(siguiente);
-            if (costo >= (costos.get(key) ?? Infinity)) return;
-            desde.set(key, actual);
-            costos.set(key, costo);
-            if (!abiertos.some((nodo) => claveNodo(nodo) === key)) abiertos.push(siguiente);
-        });
-    }
-    return [inicio, fin];
-}
-
 function asignarAviso(trabajador, aviso) {
     if (!trabajador || !aviso || trabajador.estado !== "idle" || aviso.estado !== "pending") return false;
     const edificio = EDIFICIOS[aviso.edificioId];
     const inicio = { columna: indiceMasCercano(EJES_CALLE_X, trabajador.x), fila: indiceMasCercano(EJES_CALLE_Y, trabajador.y) };
-    const nodos = encontrarRutaCalles(inicio, edificio.approach);
+    const nodos = encontrarRutaCalles(inicio, edificio.approach, EJES_CALLE_X.length, EJES_CALLE_Y.length);
     trabajador.ruta = nodos.slice(1).map((nodo) => ({ x: EJES_CALLE_X[nodo.columna], y: EJES_CALLE_Y[nodo.fila] }));
     if (!trabajador.ruta.length) trabajador.ruta = [{ x: trabajador.x, y: trabajador.y }];
     trabajador.puntoRuta = 0;
@@ -552,10 +503,12 @@ function animarDesplazamiento(trabajador, delta) {
         if (!aviso) { trabajador.estado = "idle"; trabajador.jobId = null; return; }
         aviso.estado = "working";
         const coincide = trabajador.especialidad === aviso.servicio.id;
-        const factorEspecialidad = coincide ? .66 : 1.12;
-        const factorHerramientas = 1 - progreso.mejoras.herramientas * .08;
-        const factorDificultad = 1 + (aviso.dificultad - 1) * .13;
-        trabajador.tiempoTrabajoTotal = Math.max(3.2, trabajador.trabajo * factorEspecialidad * factorHerramientas * factorDificultad);
+        trabajador.tiempoTrabajoTotal = calcularTiempoTrabajo({
+            base: trabajador.trabajo,
+            especialista: coincide,
+            mejoraHerramientas: progreso.mejoras.herramientas,
+            dificultad: aviso.dificultad,
+        });
         trabajador.tiempoTrabajo = trabajador.tiempoTrabajoTotal;
         aviso.tiempoTrabajoTotal = trabajador.tiempoTrabajoTotal;
         document.getElementById("selectionStatus").textContent = `${trabajador.nombre} está trabajando en ${EDIFICIOS[aviso.edificioId].nombre}.`;
@@ -565,16 +518,19 @@ function animarDesplazamiento(trabajador, delta) {
 
 function completarAviso(trabajador, aviso) {
     const coincide = trabajador.especialidad === aviso.servicio.id;
-    const rapidez = Math.max(0, Math.round(aviso.tiempo * 2.1));
-    const dificultadBonus = aviso.dificultad * 18;
-    const comboBonus = Math.max(0, partida.combo) * 12;
-    const puntos = 90 + rapidez + dificultadBonus + comboBonus + (coincide ? 35 : 0);
+    const comboAnterior = partida.combo;
     let monedas = Math.round(aviso.recompensa * (coincide ? 1.2 : .9) + Math.min(30, rapidez / 2));
     if (partida.evento?.id === "market") monedas = Math.round(monedas * 1.15);
     monedas += partida.bonusAgradecimiento;
     partida.bonusAgradecimiento = 0;
     if (partida.transcurrido - partida.ultimaCompletada <= 18) partida.combo += 1;
     else partida.combo = 1;
+    const puntos = calcularPuntajeServicio({
+        tiempoDisponible: aviso.tiempo,
+        dificultad: aviso.dificultad,
+        combo: comboAnterior,
+        especialista: coincide,
+    });
     partida.ultimaCompletada = partida.transcurrido;
     partida.mejorCombo = Math.max(partida.mejorCombo, partida.combo);
     partida.completados += 1;
@@ -683,18 +639,20 @@ function actualizarPartida(delta) {
     if (partida.restante <= 0) { finalizarPartida("tiempo"); return; }
 }
 
-function cicloPartida(ahora) {
-    if (!partida || ui.game.hidden) { rafPartida = 0; return; }
-    const delta = Math.min(.06, Math.max(0, (ahora - tiempoFrameAnterior) / 1000));
-    tiempoFrameAnterior = ahora;
+function actualizarFramePartida(delta) {
     if (partida.activa && !partida.pausada) actualizarPartida(delta);
-    dibujarBarrio(ahora / 1000);
+}
+
+function dibujarFramePartida(tiempo) {
+    dibujarBarrio(movimientoReducido ? 0 : tiempo);
+}
+
+function despuesDeFramePartida(ahora) {
     if (ahora - partida.ultimoPanel > 280) {
         partida.ultimoPanel = ahora;
         renderizarPaneles();
         actualizarHUD();
     }
-    rafPartida = requestAnimationFrame(cicloPartida);
 }
 
 function actualizarHUD() {
@@ -708,9 +666,7 @@ function actualizarHUD() {
     barra.style.background = partida.reputacion < 35 ? "#ed7069" : partida.reputacion < 65 ? "#f0b54c" : "linear-gradient(90deg,#40d39f,#9be5ad)";
     document.getElementById("workersAvailable").textContent = `${partida.equipo.filter((trabajador) => trabajador.estado === "idle").length} libres`;
     document.getElementById("requestsCount").textContent = String(partida.avisos.filter((aviso) => aviso.estado === "pending" || aviso.estado === "assigned" || aviso.estado === "working").length);
-    const vidas = document.getElementById("livesValue");
-    vidas.innerHTML = `${"♥".repeat(partida.vidas)}<span class="lost-life">${"♥".repeat(5 - partida.vidas)}</span>`;
-    vidas.setAttribute("aria-label", `${partida.vidas} de 5 vidas`);
+    renderizarVidas(partida);
 }
 
 function renderizarPaneles() {
@@ -1029,6 +985,7 @@ function finalizarPartida(motivo) {
     partida.finalizada = true;
     partida.activa = false;
     partida.pausada = false;
+    buclePartida?.detener();
     const retoSuperado = partida.retoDiario && partida.completados >= partida.objetivoDiario;
     const experiencia = partida.completados * 32 + Math.floor(partida.puntuacion / 25) + (retoSuperado ? 100 : 0);
     const monedasFinales = partida.monedas + (retoSuperado ? 150 : 0);
@@ -1064,6 +1021,7 @@ function mostrarResultados(resultado) {
         <p id="scoreSubmitStatus" class="leaderboard-note" aria-live="polite"></p>
         <div class="overlay-actions"><button type="button" class="arcade-button arcade-button-blue" data-arcade-action="again">VOLVER A JUGAR</button><button type="button" class="arcade-button arcade-button-white" data-arcade-action="home">VOLVER AL INICIO</button></div>`;
     ui.overlay.hidden = false;
+    ui.overlayCard.querySelector('[data-arcade-action="again"]')?.focus();
     enviarPuntuacion();
     ui.overlayCard.querySelectorAll("[data-arcade-action]").forEach((button) => button.addEventListener("click", () => {
         ui.overlay.hidden = true;
@@ -1074,25 +1032,53 @@ function mostrarResultados(resultado) {
 
 function mostrarOverlay(tipo) {
     if (tipo === "instructions") {
-        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">GUÍA RÁPIDA</span><h2 id="overlayTitle">Coordina, prioriza, ayuda</h2></div><button type="button" class="overlay-close" data-arcade-action="close" aria-label="Cerrar">×</button></div><p>Tu equipo tiene tres minutos para resolver las urgencias que aparecen por todo el barrio.</p><div class="overlay-instructions"><div class="instruction-row"><b>1</b><span><strong>Elige una persona libre.</strong> La especialidad correcta termina el trabajo más rápido y gana más puntos.</span></div><div class="instruction-row"><b>2</b><span><strong>Asigna un aviso.</strong> Toca el aviso o arrastra al trabajador hasta el edificio. Con teclado: 1–6 elige trabajador, ↑/↓ recorre avisos, Enter asigna y P pausa.</span></div><div class="instruction-row"><b>3</b><span><strong>Cuida vidas y reputación.</strong> Cada aviso vencido cuesta una vida y reputación; al perder las cinco vidas o toda la reputación termina el turno.</span></div><div class="instruction-row"><b>4</b><span><strong>Reacciona a los eventos.</strong> La lluvia y la hora pico ralentizan las rutas; las rachas y clientes agradecidos dan bonificaciones.</span></div><div class="instruction-row"><b>5</b><span><strong>Reto diario.</strong> Completa ocho servicios para ganar monedas y experiencia extra. Solo se guarda en este dispositivo.</span></div></div><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="close">¡ENTENDIDO!</button></div>`;
+        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">GUÍA RÁPIDA</span><h2 id="overlayTitle">Coordina, prioriza, ayuda</h2></div><button type="button" class="overlay-close" data-arcade-action="close" aria-label="Cerrar">×</button></div><p>Tu equipo tiene tres minutos para resolver las urgencias que aparecen por todo el barrio.</p><div class="overlay-instructions"><div class="instruction-row"><b>1</b><span><strong>Elige una persona libre.</strong> La especialidad correcta termina el trabajo más rápido y gana más puntos.</span></div><div class="instruction-row"><b>2</b><span><strong>Asigna un aviso.</strong> Toca el aviso o arrastra al trabajador hasta el edificio. Con teclado: 1–6 elige trabajador y ↑/↓ recorre avisos; al seleccionar ambos, el servicio se asigna. P pausa.</span></div><div class="instruction-row"><b>3</b><span><strong>Cuida vidas y reputación.</strong> Cada aviso vencido cuesta una vida y reputación; al perder las cinco vidas o toda la reputación termina el turno.</span></div><div class="instruction-row"><b>4</b><span><strong>Reacciona a los eventos.</strong> La lluvia y la hora pico ralentizan las rutas; las rachas y clientes agradecidos dan bonificaciones.</span></div><div class="instruction-row"><b>5</b><span><strong>Reto diario.</strong> Completa ocho servicios para ganar monedas y experiencia extra. Solo se guarda en este dispositivo.</span></div></div><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="close">¡ENTENDIDO!</button></div>`;
     } else {
-        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">TURNO EN PAUSA</span><h2 id="overlayTitle">Toma aire, capitán</h2></div><button type="button" class="overlay-close" data-arcade-action="resume" aria-label="Continuar">×</button></div><p>El barrio espera. Puedes volver a coordinar, reiniciar el turno o salir al inicio.</p><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="resume">CONTINUAR</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="restart">REINICIAR TURNO</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="home">SALIR AL INICIO</button></div>`;
+        const mensajePausa = partida?.motivoPausa === "foco" ? "La partida se pausó al salir de esta pestaña o ventana." : "El barrio espera. Puedes volver a coordinar, reiniciar el turno o salir al inicio.";
+        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">TURNO EN PAUSA</span><h2 id="overlayTitle">Toma aire, capitán</h2></div><button type="button" class="overlay-close" data-arcade-action="resume" aria-label="Continuar">×</button></div><p>${mensajePausa}</p><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="resume">CONTINUAR</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="restart">REINICIAR TURNO</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="home">SALIR AL INICIO</button></div>`;
     }
     ui.overlay.hidden = false;
+    ui.overlayCard.querySelector("button")?.focus();
     ui.overlayCard.querySelectorAll("[data-arcade-action]").forEach((button) => button.addEventListener("click", () => {
         const action = button.dataset.arcadeAction;
         if (action === "close") ui.overlay.hidden = true;
-        if (action === "resume") { ui.overlay.hidden = true; partida.pausada = false; tiempoFrameAnterior = performance.now(); }
+        if (action === "resume") { ui.overlay.hidden = true; partida.pausada = false; partida.motivoPausa = null; buclePartida?.iniciar(); }
         if (action === "restart") { ui.overlay.hidden = true; abrirPreparacion(); }
         if (action === "home") { ui.overlay.hidden = true; partida.activa = false; mostrarPantalla("welcome"); }
     }));
 }
 
-function alternarPausa() {
+function alternarPausa(motivo = "teclado") {
     if (!partida?.activa || partida.finalizada) return;
     partida.pausada = true;
+    partida.motivoPausa = motivo;
+    buclePartida?.detener();
     mostrarOverlay("pause");
 }
+
+buclePartida = crearBucleRender({
+    esVisible: () => Boolean(partida && !ui.game.hidden),
+    actualizar: actualizarFramePartida,
+    dibujar: dibujarFramePartida,
+    despuesDeDibujar: despuesDeFramePartida,
+});
+
+instalarControlesArcade({
+    obtenerPartida: () => partida,
+    overlayVisible: () => !ui.overlay.hidden,
+    pausar: alternarPausa,
+    cerrarOverlay: () => { ui.overlay.hidden = true; },
+    elegirTrabajador: (indice) => {
+        const trabajador = partida?.equipo[indice];
+        if (trabajador) seleccionarTrabajador(trabajador.id);
+    },
+    recorrerAvisos: (direccion) => {
+        const pendientes = partida?.avisos.filter((aviso) => aviso.estado === "pending") || [];
+        if (!pendientes.length) return;
+        indiceAvisoTeclado = (indiceAvisoTeclado + direccion + pendientes.length) % pendientes.length;
+        seleccionarAviso(pendientes[indiceAvisoTeclado].id);
+    },
+});
 
 document.getElementById("playButton").addEventListener("click", abrirPreparacion);
 document.getElementById("instructionsButton").addEventListener("click", () => mostrarOverlay("instructions"));
@@ -1101,25 +1087,6 @@ document.getElementById("startShiftButton").addEventListener("click", iniciarTur
 document.getElementById("pauseButton").addEventListener("click", alternarPausa);
 document.getElementById("dailyChallengeButton").addEventListener("click", () => { retoDiarioPendiente = true; abrirPreparacion(); });
 ui.overlay.addEventListener("click", (evento) => { if (evento.target === ui.overlay && !partida?.pausada) ui.overlay.hidden = true; });
-document.addEventListener("keydown", (evento) => {
-    if (evento.key === "Escape" && partida?.activa && !partida.pausada) alternarPausa();
-    if ((evento.key === "p" || evento.key === "P") && partida?.activa && !partida.pausada) alternarPausa();
-    if (evento.key === "Escape" && ui.overlay.hidden === false && !partida?.pausada) ui.overlay.hidden = true;
-    if (!partida?.activa || partida.pausada || ui.overlay.hidden === false) return;
-    if (/^[1-6]$/.test(evento.key)) {
-        const trabajador = partida.equipo[Number(evento.key) - 1];
-        if (trabajador) seleccionarTrabajador(trabajador.id);
-    }
-    if (evento.key === "ArrowDown" || evento.key === "ArrowUp") {
-        evento.preventDefault();
-        const pendientes = partida.avisos.filter((aviso) => aviso.estado === "pending");
-        if (pendientes.length) {
-            indiceAvisoTeclado = (indiceAvisoTeclado + (evento.key === "ArrowDown" ? 1 : -1) + pendientes.length) % pendientes.length;
-            seleccionarAviso(pendientes[indiceAvisoTeclado].id);
-        }
-    }
-    if (evento.key === "Enter" && partida.seleccionAviso && partida.seleccionTrabajador) seleccionarAviso(partida.seleccionAviso);
-});
 
 window.addEventListener("resize", ajustarCanvas);
 if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(ui.canvas);

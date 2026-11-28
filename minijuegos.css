@@ -143,7 +143,7 @@ body { color:var(--ink); background:radial-gradient(ellipse at 50% -20%,#222655 
 .arcade-toast { border-radius:4px; background:#20264beF; }
 .crt-enabled::after { position:fixed; inset:0; z-index:40; pointer-events:none; content:""; opacity:.22; background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,#03040b 3px,#03040b 4px); mix-blend-mode:multiply; }
 .crt-enabled .arcade-main { filter:saturate(1.16) contrast(1.03); }
-button:focus-visible,a:focus-visible { outline:3px solid #ffe36e; outline-offset:3px; }
+button:focus-visible,a:focus-visible,select:focus-visible,canvas:focus-visible { outline:3px solid #ffe36e; outline-offset:3px; }
 @media(max-width:720px) { .arcade-brand { font-size:9px; }.arcade-brand small { font-size:6px; }.crt-toggle { padding:6px; font-size:7px; }.hero-copy h1 { font-size:clamp(24px,7vw,40px); } }
 @media(prefers-reduced-motion:reduce) { .crt-enabled::after { opacity:.12; } }
 .daily-challenge { margin-top:14px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; gap:15px; border:1px solid #6561b0; border-radius:5px; background:linear-gradient(100deg,#1c2047,#302153); box-shadow:0 0 24px #8573ff16; }
