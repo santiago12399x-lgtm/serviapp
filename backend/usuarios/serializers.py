@@ -4,12 +4,31 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from .models import (
     Notificacion,
+    PuntuacionArcade,
     PerfilProfesional,
     Resena,
     SolicitudServicio,
     TrabajoProfesional,
     Usuario,
 )
+
+
+class PuntuacionArcadeSerializer(serializers.ModelSerializer):
+    puntuacion = serializers.IntegerField(min_value=0, max_value=100000)
+    servicios_completados = serializers.IntegerField(min_value=0, max_value=50)
+    duracion_segundos = serializers.IntegerField(min_value=1, max_value=180)
+
+    class Meta:
+        model = PuntuacionArcade
+        fields = ['puntuacion', 'servicios_completados', 'duracion_segundos', 'modo']
+
+    def validate(self, attrs):
+        puntaje_maximo_razonable = attrs['servicios_completados'] * 2500 + 250
+        if attrs['puntuacion'] > puntaje_maximo_razonable:
+            raise serializers.ValidationError({
+                'puntuacion': 'El puntaje no coincide con la cantidad de servicios reportada.'
+            })
+        return attrs
 
 
 class RegistroUsuarioSerializer(serializers.ModelSerializer):

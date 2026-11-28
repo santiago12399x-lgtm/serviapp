@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     CambiarSolicitudServicioView,
+    ClasificacionArcadeView,
     CrearResenaView,
     DetalleProfesionalPublicoView,
     EliminarTrabajoView,
@@ -11,6 +12,7 @@ from .views import (
     MisTrabajosView,
     NotificacionesView,
     PerfilUsuarioView,
+    PuntuacionesArcadeView,
     RegistroUsuarioView,
     SolicitudesServicioView,
     TrabajosProfesionalPublicosView,
@@ -20,6 +22,8 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
+    path('arcade/puntuaciones/', PuntuacionesArcadeView.as_view(), name='puntuaciones-arcade'),
+    path('arcade/clasificacion/', ClasificacionArcadeView.as_view(), name='clasificacion-arcade'),
     path('registro/', RegistroUsuarioView.as_view(), name='registro'),
 
     path('token/', LoginView.as_view(), name='token_obtain_pair'),

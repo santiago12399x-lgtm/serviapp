@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import PerfilProfesional, Usuario
+from .models import PerfilProfesional, PuntuacionArcade, Usuario
 
 
 class AutenticacionTests(TestCase):
@@ -161,3 +164,68 @@ class PerfilProfesionalTests(TestCase):
             f'/api/usuarios/profesionales/{perfil.id}/'
         )
         self.assertEqual(respuesta_con_telefono.data['telefono'], '3001234567')
+
+
+class PuntuacionesArcadeTests(TestCase):
+    def setUp(self):
+        self.jugador = Usuario.objects.create_user(
+            email='jugador@example.com', password='ClaveSegura!2026', first_name='Ada', last_name='Lovelace'
+        )
+        self.otro_jugador = Usuario.objects.create_user(
+            email='jugador2@example.com', password='ClaveSegura!2026', first_name='Grace', last_name='Hopper'
+        )
+        self.client = APIClient()
+        self.url = '/api/usuarios/arcade/puntuaciones/'
+
+    def test_guardar_puntaje_exige_autenticacion_y_lo_asocia_al_usuario(self):
+        datos = {
+            'puntuacion': 1200,
+            'servicios_completados': 3,
+            'duracion_segundos': 90,
+            'modo': 'normal',
+        }
+        anonimo = self.client.post(self.url, datos, format='json')
+        self.assertEqual(anonimo.status_code, 401)
+
+        self.client.force_authenticate(user=self.jugador)
+        guardado = self.client.post(self.url, datos, format='json')
+        self.assertEqual(guardado.status_code, 201)
+        self.assertEqual(PuntuacionArcade.objects.get().usuario, self.jugador)
+
+    def test_rechaza_puntajes_fuera_de_rango_o_incoherentes(self):
+        self.client.force_authenticate(user=self.jugador)
+        casos_invalidos = [
+            {'puntuacion': 100001, 'servicios_completados': 3, 'duracion_segundos': 90, 'modo': 'normal'},
+            {'puntuacion': 8000, 'servicios_completados': 1, 'duracion_segundos': 90, 'modo': 'normal'},
+            {'puntuacion': 100, 'servicios_completados': 1, 'duracion_segundos': 181, 'modo': 'normal'},
+            {'puntuacion': 100, 'servicios_completados': 1, 'duracion_segundos': 90, 'modo': 'otro'},
+        ]
+        for datos in casos_invalidos:
+            with self.subTest(datos=datos):
+                respuesta = self.client.post(self.url, datos, format='json')
+                self.assertEqual(respuesta.status_code, 400)
+        self.assertEqual(PuntuacionArcade.objects.count(), 0)
+
+    def test_clasificacion_es_publica_semanal_y_muestra_mejor_puntaje_por_jugador(self):
+        PuntuacionArcade.objects.create(
+            usuario=self.jugador, puntuacion=900, servicios_completados=2, duracion_segundos=100
+        )
+        PuntuacionArcade.objects.create(
+            usuario=self.jugador, puntuacion=1400, servicios_completados=3, duracion_segundos=120
+        )
+        PuntuacionArcade.objects.create(
+            usuario=self.jugador, puntuacion=3000, servicios_completados=5, duracion_segundos=100,
+            creado=timezone.now() - timedelta(days=8),
+        )
+        PuntuacionArcade.objects.create(
+            usuario=self.otro_jugador, puntuacion=1100, servicios_completados=2, duracion_segundos=80,
+            modo=PuntuacionArcade.Modo.DIARIO,
+        )
+
+        respuesta = self.client.get('/api/usuarios/arcade/clasificacion/')
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.data['clasificacion'], [
+            {'puesto': 1, 'nombre': 'Ada', 'puntuacion': 1400},
+        ])
+        diaria = self.client.get('/api/usuarios/arcade/clasificacion/?modo=diario')
+        self.assertEqual(diaria.data['clasificacion'][0]['nombre'], 'Grace')

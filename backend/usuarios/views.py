@@ -1,14 +1,19 @@
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.db.models import Max
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import (
     Notificacion,
+    PuntuacionArcade,
     PerfilProfesional,
     Resena,
     SolicitudServicio,
@@ -19,6 +24,7 @@ from .serializers import (
     CrearResenaSerializer,
     LoginTokenObtainPairSerializer,
     NotificacionSerializer,
+    PuntuacionArcadeSerializer,
     PerfilProfesionalPublicoSerializer,
     PerfilProfesionalSerializer,
     RegistroUsuarioSerializer,
@@ -26,6 +32,55 @@ from .serializers import (
     TrabajoProfesionalSerializer,
     UsuarioSerializer,
 )
+
+
+class PuntuacionesArcadeView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'arcade_score'
+
+    def post(self, request):
+        serializer = PuntuacionArcadeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        puntuacion = serializer.save(usuario=request.user)
+        return Response(
+            {
+                'id': puntuacion.id,
+                'puntuacion': puntuacion.puntuacion,
+                'modo': puntuacion.modo,
+                'creado': puntuacion.creado,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ClasificacionArcadeView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        modo = request.query_params.get('modo', PuntuacionArcade.Modo.NORMAL)
+        if modo not in PuntuacionArcade.Modo.values:
+            return Response(
+                {'modo': 'Usa "normal" o "diario".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        desde = timezone.now() - timedelta(days=7)
+        mejores = (
+            PuntuacionArcade.objects
+            .filter(modo=modo, creado__gte=desde)
+            .values('usuario_id', 'usuario__first_name')
+            .annotate(mejor_puntaje=Max('puntuacion'))
+            .order_by('-mejor_puntaje', 'usuario_id')[:10]
+        )
+        resultados = [
+            {
+                'puesto': puesto,
+                'nombre': fila['usuario__first_name'] or 'Jugador ServiApp',
+                'puntuacion': fila['mejor_puntaje'],
+            }
+            for puesto, fila in enumerate(mejores, start=1)
+        ]
+        return Response({'modo': modo, 'clasificacion': resultados})
 
 
 class RegistroUsuarioView(generics.CreateAPIView):

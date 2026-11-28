@@ -199,3 +199,44 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f'{self.usuario.email}: {self.mensaje}'
+
+
+class PuntuacionArcade(models.Model):
+    class Modo(models.TextChoices):
+        NORMAL = 'normal', 'Turno normal'
+        DIARIO = 'diario', 'Reto diario'
+
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='puntuaciones_arcade',
+    )
+    puntuacion = models.PositiveIntegerField()
+    servicios_completados = models.PositiveSmallIntegerField()
+    duracion_segundos = models.PositiveSmallIntegerField()
+    modo = models.CharField(max_length=8, choices=Modo.choices, default=Modo.NORMAL)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-puntuacion', 'creado']
+        indexes = [
+            models.Index(fields=['modo', '-creado'], name='arcade_modo_fecha_idx'),
+            models.Index(fields=['usuario', 'modo', '-puntuacion'], name='arcade_usuario_modo_idx'),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(puntuacion__lte=100000),
+                name='arcade_puntuacion_max_100k',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(servicios_completados__lte=50),
+                name='arcade_servicios_max_50',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(duracion_segundos__gte=1, duracion_segundos__lte=180),
+                name='arcade_duracion_1_a_180',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.usuario_id}: {self.puntuacion} puntos ({self.modo})'

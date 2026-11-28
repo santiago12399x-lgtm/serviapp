@@ -2,12 +2,21 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import (
     Notificacion,
+    PuntuacionArcade,
     PerfilProfesional,
     Resena,
     SolicitudServicio,
     TrabajoProfesional,
     Usuario,
 )
+
+
+@admin.register(PuntuacionArcade)
+class PuntuacionArcadeAdmin(admin.ModelAdmin):
+    list_display = ('usuario', 'puntuacion', 'servicios_completados', 'duracion_segundos', 'modo', 'creado')
+    list_filter = ('modo', 'creado')
+    search_fields = ('usuario__email', 'usuario__first_name')
+    readonly_fields = ('usuario', 'puntuacion', 'servicios_completados', 'duracion_segundos', 'modo', 'creado')
 
 
 @admin.register(Usuario)

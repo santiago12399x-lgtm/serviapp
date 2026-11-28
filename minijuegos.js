@@ -5,6 +5,7 @@ const CLAVE_PROGRESO_ARCADE = "serviapp-caos-barrio-v1";
 const EJES_CALLE_X = [45, 227, 409, 591, 773, 955];
 const EJES_CALLE_Y = [38, 174, 310, 446, 582];
 const DURACION_TURNO = 180;
+const API_ARCADE = "http://127.0.0.1:8000/api/usuarios/arcade/";
 const CLAVE_CRT_ARCADE = "serviapp-caos-crt-v1";
 
 const SERVICIOS = [
@@ -192,6 +193,77 @@ function actualizarRetoDiario() {
     document.getElementById("dailyChallengeStatus").textContent = guardado?.completado
         ? `¡Reto superado! Récord de hoy: ${guardado.mejor} puntos. Se renueva mañana.`
         : "Completa 8 servicios en un turno para ganar +150 monedas y 100 XP.";
+}
+
+function mostrarClasificacion(filas, mensaje = "") {
+    const lista = document.getElementById("arcadeLeaderboard");
+    lista.replaceChildren();
+    if (mensaje || !filas.length) {
+        const item = crearNodo("li", "leaderboard-message", mensaje || "Todavía no hay puntajes esta semana.");
+        lista.appendChild(item);
+        return;
+    }
+    filas.forEach((fila) => {
+        const item = crearNodo("li", "");
+        item.append(crearNodo("span", "", fila.nombre), crearNodo("strong", "", `${formatoMoneda(fila.puntuacion)} PTS`));
+        lista.appendChild(item);
+    });
+}
+
+async function cargarClasificacion() {
+    const modo = document.getElementById("leaderboardMode").value;
+    try {
+        const respuesta = await fetch(`${API_ARCADE}clasificacion/?modo=${encodeURIComponent(modo)}`);
+        if (!respuesta.ok) throw new Error("El servidor no devolvió la clasificación.");
+        const datos = await respuesta.json();
+        mostrarClasificacion(datos.clasificacion || []);
+    } catch (_error) {
+        mostrarClasificacion([], "Inicia el servidor Django para cargar la clasificación.");
+    }
+}
+
+async function enviarPuntuacion(mostrarToastAlGuardar = false) {
+    let acceso;
+    let refresco;
+    try {
+        acceso = sessionStorage.getItem("serviappAccessToken");
+        refresco = sessionStorage.getItem("serviappRefreshToken");
+    } catch (_error) { acceso = null; }
+    const estado = document.getElementById("scoreSubmitStatus");
+    if (!acceso) {
+        if (estado) estado.textContent = "Inicia sesión en ServiApp para guardar tu puntaje en la clasificación.";
+        return;
+    }
+    const payload = {
+        puntuacion: partida.puntuacion,
+        servicios_completados: partida.completados,
+        duracion_segundos: Math.max(1, Math.min(DURACION_TURNO, Math.ceil(DURACION_TURNO - partida.restante))),
+        modo: partida.retoDiario ? "diario" : "normal",
+    };
+    const enviar = (token) => fetch(`${API_ARCADE}puntuaciones/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+    });
+    try {
+        let respuesta = await enviar(acceso);
+        if (respuesta.status === 401 && refresco) {
+            const respuestaRefresh = await fetch("http://127.0.0.1:8000/api/usuarios/token/refresh/", {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh: refresco }),
+            });
+            if (respuestaRefresh.ok) {
+                const tokens = await respuestaRefresh.json();
+                sessionStorage.setItem("serviappAccessToken", tokens.access);
+                respuesta = await enviar(tokens.access);
+            }
+        }
+        if (!respuesta.ok) throw new Error("El servidor rechazó el puntaje.");
+        if (estado) estado.textContent = "Puntaje guardado en la clasificación semanal.";
+        if (mostrarToastAlGuardar) mostrarToast("Puntaje enviado a la clasificación.");
+        cargarClasificacion();
+    } catch (_error) {
+        if (estado) estado.textContent = "No se pudo enviar el puntaje; tu récord local sigue guardado.";
+    }
 }
 
 function tonoArcade(tipo = "ok") {
@@ -989,8 +1061,10 @@ function mostrarResultados(resultado) {
             <div class="result-stat"><small>NIVEL DE EQUIPO</small><strong>${nivelDelEquipo()}</strong></div>
         </div>
         <div class="result-record">${resultado.nuevoRecord ? "✦ ¡Nuevo récord personal!" : `Récord personal: ${formatoMoneda(progreso.record)} puntos`}${partida.retoDiario ? (resultado.retoSuperado ? " · ¡Reto diario cumplido! +150 ◈ y +100 XP" : ` · Reto diario: ${partida.completados}/${partida.objetivoDiario} servicios`) : ""}</div>
+        <p id="scoreSubmitStatus" class="leaderboard-note" aria-live="polite"></p>
         <div class="overlay-actions"><button type="button" class="arcade-button arcade-button-blue" data-arcade-action="again">VOLVER A JUGAR</button><button type="button" class="arcade-button arcade-button-white" data-arcade-action="home">VOLVER AL INICIO</button></div>`;
     ui.overlay.hidden = false;
+    enviarPuntuacion();
     ui.overlayCard.querySelectorAll("[data-arcade-action]").forEach((button) => button.addEventListener("click", () => {
         ui.overlay.hidden = true;
         if (button.dataset.arcadeAction === "again") { retoDiarioPendiente = Boolean(partida.retoDiario); abrirPreparacion(); }
@@ -1052,6 +1126,8 @@ if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(ui.can
 instalarControlesMapa();
 actualizarPantallaInicio();
 actualizarRetoDiario();
+document.getElementById("leaderboardMode").addEventListener("change", cargarClasificacion);
+cargarClasificacion();
 
 // El filtro CRT es opcional y se guarda solo para esta página del minijuego.
 const botonCRT = document.getElementById("crtToggleButton");
