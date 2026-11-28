@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#102744">
+    <meta name="theme-color" content="#080b18">
     <title>Zona Arcade | ServiApp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="minijuegos.css">
 </head>
 <body>
@@ -12,7 +15,7 @@
         <a class="arcade-brand" href="index.html" aria-label="Volver a ServiApp">
             <span class="brand-check">✓</span><span>ServiApp</span><small>ARCADE</small>
         </a>
-        <div class="topbar-right"><span class="local-save"><i></i> Progreso guardado en este dispositivo</span><a class="back-to-app" href="index.html">← <span>Volver a ServiApp</span></a></div>
+        <div class="topbar-right"><span class="local-save"><i></i> Progreso guardado en este dispositivo</span><button id="crtToggleButton" class="crt-toggle" type="button" aria-pressed="false" aria-label="Activar efecto de pantalla retro">CRT <strong>OFF</strong></button><a class="back-to-app" href="index.html">← <span>Volver a ServiApp</span></a></div>
     </header>
 
     <main class="arcade-main">
@@ -92,7 +95,7 @@
             <div class="game-board-layout">
                 <section class="city-panel" aria-label="Mapa interactivo del barrio">
                     <div class="city-panel-heading"><div><span class="section-kicker">SECTOR CENTRO</span><strong>Un barrio, mil cosas por resolver</strong></div><span class="map-legend"><i class="legend-emergency"></i> Aviso nuevo</span></div>
-                    <div class="city-canvas-wrap"><canvas id="cityCanvas" aria-label="Barrio interactivo. Selecciona trabajadores y avisos en el mapa."></canvas><div class="canvas-help">Selecciona un trabajador y toca un aviso para enviarlo</div></div>
+                    <div class="city-canvas-wrap"><canvas id="cityCanvas" aria-label="Barrio interactivo. Toca o arrastra un trabajador hasta un aviso para asignarlo."></canvas><div class="canvas-help"><b>1</b> Toca un trabajador <span>→</span> <b>2</b> toca una alerta</div></div>
                     <div class="map-status-row"><span id="selectionStatus" aria-live="polite">Selecciona un trabajador disponible.</span><span id="comboStatus"></span></div>
                 </section>
 

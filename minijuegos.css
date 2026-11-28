@@ -45,4 +45,104 @@ button,a { font:inherit; }
 @media(max-width:950px) { .welcome-hero { grid-template-columns:1fr 1fr; }.hero-copy { padding-left:30px; }.hero-copy h1 { font-size:clamp(48px,7vw,62px); }.hero-city { padding-right:18px; }.upgrade-shop { grid-template-columns:repeat(2,minmax(0,1fr)); }.game-board-layout { grid-template-columns:minmax(0,1fr) 260px; gap:8px; }.game-hud { gap:13px; }.hud-game-title { min-width:118px; } }
 @media(max-width:720px) { .arcade-main { width:min(100% - 20px,1240px); padding-top:13px; }.arcade-topbar { height:58px; padding:0 13px; }.local-save { display:none; }.welcome-hero { min-height:0; grid-template-columns:1fr; }.hero-copy { padding:27px 24px 5px; }.hero-copy h1 { font-size:clamp(48px,12vw,65px); }.hero-copy>p { max-width:460px; margin:13px 0 15px; font-size:13px; }.hero-city { height:205px; padding:0 22px 12px; }.hero-city svg { width:min(100%,450px); max-height:205px; }.hero-sticker { right:25px; bottom:19px; }.welcome-bottom { align-items:flex-start; flex-direction:column; gap:7px; padding:12px; }.meta-stats { width:100%; justify-content:space-between; gap:7px; }.meta-stat { gap:6px; }.stat-icon { width:26px; height:26px; }.meta-stat small { font-size:7px; }.meta-stat strong { font-size:13px; }.welcome-bottom>p { align-self:flex-end; font-size:9px; }.section-heading { align-items:flex-start; flex-direction:column; gap:2px; }.section-heading h2 { font-size:18px; }.upgrade-shop { gap:8px; }.upgrade-card { min-height:111px; padding:10px; }.prepare-screen { padding:16px; }.subscreen-heading h2 { font-size:20px; }.prep-duration { padding:6px 8px; font-size:9px; }.game-hud { min-height:58px; padding:7px; gap:8px; border-radius:11px; }.hud-game-title { min-width:0; gap:6px; }.hud-mark { width:27px; height:27px; }.hud-game-title small { font-size:6px; }.hud-game-title strong { font-size:9px; }.hud-metric { min-width:44px; }.hud-metric small,.reputation-metric small { font-size:6px; }.hud-metric strong { font-size:12px; }.reputation-metric { min-width:70px; }.reputation-metric strong { font-size:9px; }.pause-button { width:30px; height:30px; flex-basis:30px; }.game-board-layout { grid-template-columns:1fr; }.dispatch-panel { display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); }.dispatch-section { padding:9px; }.requests-section { border-top:0; border-left:1px solid #edf1f4; }.game-workers-list { gap:4px; }.game-worker-row { min-height:39px; padding:3px 5px; gap:3px; }.worker-state { padding:3px 4px; font-size:7px; }.requests-list { max-height:206px; }.city-canvas-wrap canvas { min-height:205px; }.canvas-help { right:6px; bottom:6px; font-size:8px; }.map-status-row { font-size:8px; } }
 @media(max-width:440px) { .arcade-brand { font-size:16px; }.arcade-brand small { font-size:8px; }.back-to-app { font-size:10px; }.hero-copy { padding-inline:19px; }.hero-copy h1 { font-size:47px; }.hero-actions { gap:7px; }.arcade-button { min-height:40px; padding:0 12px; font-size:9px; }.hero-city { height:178px; }.upgrade-shop { grid-template-columns:1fr 1fr; }.upgrade-card p { font-size:9px; }.hud-game-title { display:none; }.reputation-metric { flex:1; }.game-hud { justify-content:space-between; }.city-panel-heading { padding-inline:9px; }.city-panel-heading strong { font-size:10px; }.map-legend { font-size:8px; }.dispatch-panel { grid-template-columns:.9fr 1.1fr; }.panel-section-heading h3 { font-size:12px; }.count-pill { padding:3px 5px; font-size:8px; }.game-worker-info strong { font-size:9px; }.game-worker-info small { font-size:7px; }.worker-state { max-width:56px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.request-card { grid-template-columns:25px minmax(0,1fr) auto; gap:5px; padding:7px 5px; }.request-service-icon { width:24px; height:24px; }.request-card-text strong { font-size:8px; }.request-card-text small,.request-time { font-size:7px; }.request-reward { font-size:7px; } }
+
+/* Marcadores y controles táctiles con más presencia en el mapa del turno. */
+.canvas-help { left:11px; right:auto; bottom:10px; padding:7px 10px; display:flex; align-items:center; gap:6px; color:#29445e; border-color:#ffffff; background:#ffffffed; box-shadow:0 3px 10px #0d263c25; font-size:10px; font-weight:800; }
+.canvas-help b { width:17px; height:17px; display:grid; place-items:center; border-radius:50%; color:#fff; background:#3478e5; font-size:9px; }
+.canvas-help span { color:#678098; font-size:13px; }
+.game-worker-row { min-height:52px; }
+.game-worker-row .worker-avatar { width:36px; height:40px; flex-basis:36px; transform:scale(.9); margin:0 -1px; }
+.game-worker-row.selected { border-width:2px; background:#eaf3ff; }
+.request-card { min-height:58px; padding:8px; }
+.request-service-icon { width:34px; height:34px; border-radius:11px; font-size:10px; }
+.request-card-text strong { font-size:10px; }
+.request-card-text small { font-size:9px; }
+.request-time { font-size:10px; }
+.city-canvas-wrap canvas { cursor:grab; }
+.city-canvas-wrap canvas:active { cursor:grabbing; }
+@media(max-width:720px) {
+    .canvas-help { left:6px; bottom:6px; gap:4px; padding:5px 7px; font-size:8px; }
+    .canvas-help b { width:14px; height:14px; font-size:7px; }
+    .game-worker-row { min-height:46px; }
+    .game-worker-row .worker-avatar { width:32px; height:36px; flex-basis:32px; transform:scale(.82); margin:0 -2px; }
+    .request-card { min-height:53px; padding:6px; }
+    .request-service-icon { width:29px; height:29px; font-size:9px; }
+}
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+/* Identidad arcade retro neón, aislada de las demás pantallas de ServiApp. */
+:root { color-scheme:dark; --navy:#10142c; --navy-2:#1a2044; --ink:#f2f3ff; --muted:#adb4d6; --blue:#52e5f2; --line:#373d68; --paper:#090c1c; --mint:#62f4b2; --amber:#ffe36e; }
+body { color:var(--ink); background:radial-gradient(ellipse at 50% -20%,#222655 0,#0b0e20 58%,#080a16 100%); }
+.arcade-topbar { background:#0b0e20ed; border-color:#252b50; box-shadow:0 4px 24px #05061390; }
+.arcade-brand { color:#fff; font-family:"Press Start 2P",monospace; font-size:12px; letter-spacing:0; }
+.brand-check { border-radius:3px; color:#0c1226; background:var(--mint); box-shadow:0 0 15px #42ffbf62; }
+.arcade-brand small { border:1px solid #514aa1; border-radius:2px; color:#d9b8ff; background:#32245b; font-family:"Press Start 2P",monospace; font-size:7px; }
+.local-save { color:#a7afd1; }
+.back-to-app { color:#c0c7e5; }
+.back-to-app:hover,.small-return-link:hover { color:var(--amber); }
+.crt-toggle { padding:7px 9px; border:1px solid #505785; border-radius:3px; color:#d7dcf7; background:#171b39; font-family:"Press Start 2P",monospace; font-size:8px; cursor:pointer; }
+.crt-toggle strong { color:var(--mint); }
+.crt-toggle[aria-pressed="true"] { border-color:#ff6fcf; box-shadow:0 0 12px #ff6fcf55; }
+.crt-toggle[aria-pressed="true"] strong { color:#ff8cda; }
+.arcade-main { max-width:1240px; }
+.welcome-hero { border:1px solid #5760a1; border-radius:8px; background:linear-gradient(120deg,#121738 0%,#20245a 54%,#34245f 100%); box-shadow:0 0 35px #5867ff20,inset 0 0 28px #54e9f215; }
+.hero-copy h1 { font-family:"Press Start 2P",monospace; font-size:clamp(28px,4vw,48px); line-height:1.35; letter-spacing:-.07em; text-shadow:3px 3px 0 #492b84,0 0 23px #6b78ff65; }
+.hero-copy h1 span { color:#71f6d1; }
+.game-eyebrow,.section-kicker,.overlay-kicker { color:#77e6f5; }
+.hero-copy>p,.game-eyebrow,.small-return-link { color:#c8ceef; }
+.arcade-button { border-radius:4px; font-family:"Press Start 2P",monospace; font-size:8px; }
+.arcade-button-yellow { color:#18142a; border-color:#fff39a; background:linear-gradient(120deg,#fff17a,#ffc857); box-shadow:0 0 18px #ffe36e52; }
+.arcade-button-ghost { border-color:#737cb2; color:#f3edff; background:#ffffff0a; }
+.hero-sticker { border:2px solid #fff28e; border-radius:3px; color:#211a39; background:#ffe36e; }
+.welcome-bottom,.upgrade-card,.prepare-screen,.city-panel,.dispatch-panel { border-color:#333a67; border-radius:5px; background:#11152c; box-shadow:0 8px 24px #03040c60; }
+.welcome-bottom>p,.section-heading>p,.screen-lede { color:#a7afd0; }
+.meta-stat small,.upgrade-level,.upgrade-card p { color:#9da5ca; }
+.meta-stat strong,.section-heading h2,.subscreen-heading h2,.panel-section-heading h3 { color:#f1f3ff; }
+.stat-icon,.upgrade-symbol { border:1px solid #3c4578; border-radius:4px; color:#83e9f7; background:#1c2448; }
+.upgrade-card h3 { color:#f4f2ff; }
+.upgrade-buy { border:1px solid #4b5487; border-radius:3px; color:#8ef4de; background:#20274c; }
+.upgrade-buy:hover:not(:disabled) { background:#2b3563; }
+.back-round,.worker-card,.worker-preview { border-color:#3b426d; border-radius:5px; color:#e8eaff; background:#151a35; }
+.worker-card.selected { border-color:#73e9f5; background:#1a2549; box-shadow:0 0 0 2px #68e5f52c,0 0 18px #5ddcf52b; }
+.prep-duration,.count-pill { border:1px solid #454d80; border-radius:3px; color:#96edfa; background:#1a2041; }
+.game-hud { border:1px solid #6265b0; border-radius:5px; background:linear-gradient(90deg,#121735,#20214e); box-shadow:0 0 22px #505cff20; }
+.hud-game-title strong,.hud-metric strong,.reputation-metric strong { color:#f6f3ff; }
+.hud-mark { color:#fff17a; background:#4d3679; }
+.hud-metric small,.reputation-metric small { color:#aeb8dc; }
+.timer-metric strong { color:#81f4d4; }
+.score-metric strong { color:#ffe574; }
+.coin-metric strong { color:#9df4b2; }
+.pause-button { border:1px solid #7883c7; border-radius:4px; color:#fff; background:#333668; }
+.city-panel-heading strong { color:#eef0ff; }
+.city-panel-heading,.dispatch-section { color:#c4c9e7; }
+.map-status-row { color:#bbc2e2; }
+.game-worker-row,.request-card { border-color:#30385f; border-radius:4px; color:#e7eaff; background:#191e3b; }
+.game-worker-row:hover,.request-card:hover { border-color:#59dced; background:#22294e; }
+.game-worker-row.selected,.request-card.selected { border-color:#67e8f5; background:#252950; box-shadow:0 0 12px #50d9e929; }
+.game-worker-info strong,.request-card-text strong { color:#f0f2ff; }
+.game-worker-info small,.request-card-text small { color:#adb5d4; }
+.worker-state { color:#8df2ba; background:#183b3d; }
+.worker-state.traveling { color:#ffe181; background:#463a25; }
+.worker-state.working { color:#9de5ff; background:#203850; }
+.request-service-icon { color:#ff9aab; background:#45263e; }
+.request-time { color:#ff9b9b; }
+.request-time.safe { color:#c5cee8; }
+.request-reward { color:#8df2ba; }
+.empty-requests { border-color:#424a76; color:#aeb6d6; }
+.arcade-overlay { background:#050612d9; }
+.overlay-card { border:1px solid #5e65a1; border-radius:6px; color:#e8eaff; background:#11152c; box-shadow:0 0 40px #6669ff35; }
+.overlay-card h2 { color:#fff; }
+.overlay-card p,.instruction-row span { color:#c0c7e5; }
+.overlay-close,.arcade-button-white { border-color:#48507d; color:#e4e8ff; background:#191e3d; }
+.instruction-row,.result-stat { border:1px solid #30385f; border-radius:4px; background:#191e3b; }
+.instruction-row b { border-radius:3px; color:#12172f; background:#79ecf5; }
+.result-hero { background:linear-gradient(120deg,#171c43,#36235c); }
+.result-stat small { color:#aab2d3; }
+.result-stat strong { color:#f3f4ff; }
+.result-record { color:#ffe994; background:#39331f; }
+.arcade-toast { border-radius:4px; background:#20264beF; }
+.crt-enabled::after { position:fixed; inset:0; z-index:40; pointer-events:none; content:""; opacity:.22; background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,#03040b 3px,#03040b 4px); mix-blend-mode:multiply; }
+.crt-enabled .arcade-main { filter:saturate(1.16) contrast(1.03); }
+button:focus-visible,a:focus-visible { outline:3px solid #ffe36e; outline-offset:3px; }
+@media(max-width:720px) { .arcade-brand { font-size:9px; }.arcade-brand small { font-size:6px; }.crt-toggle { padding:6px; font-size:7px; }.hero-copy h1 { font-size:clamp(24px,7vw,40px); } }
+@media(prefers-reduced-motion:reduce) { .crt-enabled::after { opacity:.12; } }

@@ -5,6 +5,7 @@ const CLAVE_PROGRESO_ARCADE = "serviapp-caos-barrio-v1";
 const EJES_CALLE_X = [45, 227, 409, 591, 773, 955];
 const EJES_CALLE_Y = [38, 174, 310, 446, 582];
 const DURACION_TURNO = 180;
+const CLAVE_CRT_ARCADE = "serviapp-caos-crt-v1";
 
 const SERVICIOS = [
     { id: "plomeria", nombre: "Plomería", corto: "Fuga de agua", sello: "AGUA", trabajo: 8, recompensa: 54, color: "#36a9ca" },
@@ -198,20 +199,23 @@ function hacerAvatarCanvas(ctx, x, y, persona, tiempo, seleccionado, estado) {
     const paso = estado === "traveling" ? Math.sin(tiempo * 13 + x) * 2.6 : estado === "working" ? Math.sin(tiempo * 17 + y) * 1.3 : Math.sin(tiempo * 2 + x) * .7;
     ctx.save();
     ctx.translate(x, y + paso);
+    ctx.scale(1.42, 1.42);
     ctx.fillStyle = "#1c2b3880";
     ctx.beginPath(); ctx.ellipse(0, 11, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
     if (seleccionado) {
-        ctx.strokeStyle = "#ffe16a"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 8, 17, 8, 0, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = "#f6d45c"; ctx.beginPath(); ctx.arc(0, -29, 3, 0, Math.PI * 2); ctx.fill();
+        const pulso = 1 + Math.sin(tiempo * 5) * .08;
+        ctx.globalAlpha = .28; ctx.fillStyle = "#ffe16a"; ctx.beginPath(); ctx.ellipse(0, 4, 24 * pulso, 19 * pulso, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = "#ffe16a"; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(0, 8, 20 * pulso, 10 * pulso, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#f6d45c"; ctx.beginPath(); ctx.arc(0, -31, 3.6, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.strokeStyle = "#23394e"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.strokeStyle = "#23394e"; ctx.lineWidth = 3.5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(-4, 5); ctx.lineTo(-5 + paso * .4, 10); ctx.moveTo(4, 5); ctx.lineTo(5 - paso * .4, 10); ctx.stroke();
-    ctx.fillStyle = persona.color; ctx.beginPath(); ctx.roundRect(-8, -9, 16, 17, 5); ctx.fill();
-    ctx.strokeStyle = persona.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(-11, 2 + paso * .3); ctx.moveTo(7, -3); ctx.lineTo(10, 1 - paso * .3); ctx.stroke();
-    ctx.fillStyle = persona.tono; ctx.beginPath(); ctx.arc(0, -16, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#263549"; ctx.beginPath(); ctx.arc(0, -20, 7, Math.PI, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#f1c656"; ctx.fillRect(-8, -21, 16, 2);
-    ctx.fillStyle = "#243a52"; ctx.beginPath(); ctx.arc(-2, -16, .8, 0, Math.PI * 2); ctx.arc(2, -16, .8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = persona.color; ctx.beginPath(); ctx.roundRect(-9, -10, 18, 19, 6); ctx.fill();
+    ctx.strokeStyle = persona.color; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(-12, 2 + paso * .3); ctx.moveTo(8, -3); ctx.lineTo(11, 1 - paso * .3); ctx.stroke();
+    ctx.fillStyle = persona.tono; ctx.beginPath(); ctx.arc(0, -17, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#263549"; ctx.beginPath(); ctx.arc(0, -21, 8, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#f1c656"; ctx.fillRect(-9, -22, 18, 2.5);
+    ctx.fillStyle = "#243a52"; ctx.beginPath(); ctx.arc(-2.5, -17, 1, 0, Math.PI * 2); ctx.arc(2.5, -17, 1, 0, Math.PI * 2); ctx.fill();
     if (estado === "working") {
         const pulse = Math.sin(tiempo * 15) * 2;
         ctx.strokeStyle = "#fff1a6"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(11, -7); ctx.lineTo(14 + pulse, -12); ctx.lineTo(18, -8); ctx.stroke();
@@ -743,9 +747,9 @@ function dibujarEmergencia(ctx, aviso, edificio, tiempo) {
     const y = edificio.y - edificio.h * .53;
     const color = aviso.servicio.color;
     ctx.save();
-    ctx.globalAlpha = .2; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 23 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = "#fff"; ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = color; ctx.font = "900 7px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(aviso.servicio.sello.slice(0, 3), x, y + .5);
+    ctx.globalAlpha = .18; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 31 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = "#fff"; ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 19, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color; ctx.font = "900 9px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(aviso.servicio.sello.slice(0, 3), x, y + .5);
     if (aviso.servicio.id === "plomeria") {
         const drip = (tiempo * 42 + aviso.id * 13) % 23;
         ctx.fillStyle = "#4bbce4"; ctx.beginPath(); ctx.ellipse(edificio.x + edificio.w * .38, y + 16 + drip, 2, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -753,8 +757,8 @@ function dibujarEmergencia(ctx, aviso, edificio, tiempo) {
         ctx.strokeStyle = "#ffe58a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 16, y - 12); ctx.lineTo(x + 20, y - 17); ctx.lineTo(x + 18, y - 11); ctx.lineTo(x + 23, y - 14); ctx.stroke();
     }
     if (aviso.estado === "assigned" || aviso.estado === "working") {
-        ctx.fillStyle = "#235d8f"; ctx.beginPath(); ctx.roundRect(x - 25, y - 31, 50, 12, 5); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 7px Inter,sans-serif"; ctx.fillText(aviso.estado === "working" ? "EN TRABAJO" : "EN CAMINO", x, y - 25);
+        ctx.fillStyle = "#235d8f"; ctx.beginPath(); ctx.roundRect(x - 32, y - 39, 64, 15, 6); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 8px Inter,sans-serif"; ctx.fillText(aviso.estado === "working" ? "EN TRABAJO" : "EN CAMINO", x, y - 31.5);
     }
     ctx.restore();
 }
@@ -798,8 +802,13 @@ function dibujarBarrio(tiempo) {
         partida.equipo.forEach((trabajador) => {
             const seleccionado = trabajador.id === partida.seleccionTrabajador;
             hacerAvatarCanvas(ctx, trabajador.x, trabajador.y, trabajador, tiempo, seleccionado, trabajador.estado);
-            ctx.fillStyle = "#19334d"; ctx.beginPath(); ctx.roundRect(trabajador.x - 24, trabajador.y + 14, 48, 12, 5); ctx.fill();
-            ctx.fillStyle = "#fff"; ctx.font = "bold 8px Inter,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(trabajador.nombre, trabajador.x, trabajador.y + 20);
+            ctx.fillStyle = seleccionado ? "#183e68" : "#19334d"; ctx.beginPath(); ctx.roundRect(trabajador.x - 34, trabajador.y + 20, 68, 17, 6); ctx.fill();
+            if (seleccionado) { ctx.strokeStyle = "#ffe16a"; ctx.lineWidth = 1.5; ctx.stroke(); }
+            ctx.fillStyle = "#fff"; ctx.font = "bold 10px Inter,sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(trabajador.nombre, trabajador.x, trabajador.y + 28.5);
+            if (seleccionado) {
+                ctx.fillStyle = "#19334d"; ctx.beginPath(); ctx.roundRect(trabajador.x - 27, trabajador.y - 50, 54, 14, 6); ctx.fill();
+                ctx.fillStyle = "#ffe16a"; ctx.font = "900 7px Inter,sans-serif"; ctx.fillText("ELIGE AVISO", trabajador.x, trabajador.y - 43);
+            }
             if (trabajador.estado === "working") {
                 const aviso = partida.avisos.find((item) => item.id === trabajador.jobId);
                 if (aviso) {
@@ -835,7 +844,7 @@ function puntoCanvas(evento) {
 }
 
 function trabajadorEnPunto(punto) {
-    return partida?.equipo.find((persona) => persona.estado === "idle" && Math.hypot(persona.x - punto.x, persona.y - punto.y) < 24);
+    return partida?.equipo.find((persona) => persona.estado === "idle" && Math.hypot(persona.x - punto.x, persona.y - punto.y) < 35);
 }
 
 function avisoEnPunto(punto) {
@@ -844,7 +853,7 @@ function avisoEnPunto(punto) {
         const edificio = EDIFICIOS[aviso.edificioId];
         const marcadorX = edificio.x + edificio.w * .38;
         const marcadorY = edificio.y - edificio.h * .53;
-        return Math.hypot(marcadorX - punto.x, marcadorY - punto.y) < 30 || (Math.abs(edificio.x - punto.x) < edificio.w * .58 && Math.abs(edificio.y - punto.y) < edificio.h * .65);
+        return Math.hypot(marcadorX - punto.x, marcadorY - punto.y) < 43 || (Math.abs(edificio.x - punto.x) < edificio.w * .62 && Math.abs(edificio.y - punto.y) < edificio.h * .72);
     });
 }
 
@@ -963,3 +972,19 @@ window.addEventListener("resize", ajustarCanvas);
 if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(ui.canvas);
 instalarControlesMapa();
 actualizarPantallaInicio();
+
+// El filtro CRT es opcional y se guarda solo para esta página del minijuego.
+const botonCRT = document.getElementById("crtToggleButton");
+function ajustarEfectoCRT(activo) {
+    document.body.classList.toggle("crt-enabled", activo);
+    botonCRT.setAttribute("aria-pressed", String(activo));
+    botonCRT.setAttribute("aria-label", activo ? "Desactivar efecto de pantalla retro" : "Activar efecto de pantalla retro");
+    botonCRT.querySelector("strong").textContent = activo ? "ON" : "OFF";
+}
+try { ajustarEfectoCRT(localStorage.getItem(CLAVE_CRT_ARCADE) === "true"); }
+catch (_error) { ajustarEfectoCRT(false); }
+botonCRT.addEventListener("click", () => {
+    const activo = !document.body.classList.contains("crt-enabled");
+    ajustarEfectoCRT(activo);
+    try { localStorage.setItem(CLAVE_CRT_ARCADE, String(activo)); } catch (_error) { /* Preferencia temporal. */ }
+});
