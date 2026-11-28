@@ -146,3 +146,9 @@ body { color:var(--ink); background:radial-gradient(ellipse at 50% -20%,#222655 
 button:focus-visible,a:focus-visible { outline:3px solid #ffe36e; outline-offset:3px; }
 @media(max-width:720px) { .arcade-brand { font-size:9px; }.arcade-brand small { font-size:6px; }.crt-toggle { padding:6px; font-size:7px; }.hero-copy h1 { font-size:clamp(24px,7vw,40px); } }
 @media(prefers-reduced-motion:reduce) { .crt-enabled::after { opacity:.12; } }
+.daily-challenge { margin-top:14px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; gap:15px; border:1px solid #6561b0; border-radius:5px; background:linear-gradient(100deg,#1c2047,#302153); box-shadow:0 0 24px #8573ff16; }
+.daily-challenge>div { display:grid; gap:5px; }.daily-challenge>div>strong { color:#fff2a0; font-family:"Press Start 2P",monospace; font-size:11px; line-height:1.7; }.daily-challenge small { color:#c0c7e5; font-size:11px; }
+.daily-challenge .section-kicker strong { color:#8af3dd; }.lives-metric strong { color:#ff7fba; font-size:14px; letter-spacing:2px; white-space:nowrap; }.lives-metric strong .lost-life { color:#5d4268; }
+.keyboard-hint { color:#b5bddf; font-size:9px; text-align:right; }
+@media(max-width:720px) { .daily-challenge { align-items:flex-start; flex-direction:column; padding:12px; }.daily-challenge>div>strong { font-size:9px; }.daily-challenge small { font-size:10px; }.topbar-right { gap:7px; }.game-hud { gap:5px; }.hud-metric { min-width:37px; }.lives-metric { display:flex; min-width:44px; }.lives-metric strong { font-size:10px; letter-spacing:0; }.reputation-metric { min-width:58px; } }
+@media(max-width:440px) { .game-hud { padding:5px; gap:4px; }.hud-metric { min-width:32px; }.hud-metric strong { font-size:10px; }.lives-metric { min-width:36px; }.lives-metric strong { font-size:9px; }.reputation-metric { min-width:46px; }.pause-button { width:26px; height:26px; flex-basis:26px; } }

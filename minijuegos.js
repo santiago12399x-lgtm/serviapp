@@ -51,6 +51,7 @@ function cargarProgreso() {
             monedas: Math.max(0, Number(guardado.monedas) || 0),
             xp: Math.max(0, Number(guardado.xp) || 0),
             record: Math.max(0, Number(guardado.record) || 0),
+            retosDiarios: guardado.retosDiarios && typeof guardado.retosDiarios === "object" ? guardado.retosDiarios : {},
             mejoras: { velocidad: 0, herramientas: 0, pintora: false, mensajero: false, ...(guardado.mejoras || {}) },
         };
     } catch (_error) {
@@ -68,6 +69,10 @@ let temporizadorToast = 0;
 let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 let escalaCanvas = 1;
 let arrastre = null;
+let retoDiarioPendiente = false;
+let sonidoActivo = false;
+let indiceAvisoTeclado = 0;
+let contextoSonido = null;
 
 const EDIFICIOS = crearBarrio();
 
@@ -174,6 +179,43 @@ function mostrarToast(texto) {
     temporizadorToast = setTimeout(() => ui.toast.classList.remove("visible"), 2400);
 }
 
+function fechaLocalReto() {
+    const partes = new Intl.DateTimeFormat("en", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const porTipo = Object.fromEntries(partes.map(({ type, value }) => [type, value]));
+    return `${porTipo.year}-${porTipo.month}-${porTipo.day}`;
+}
+
+function actualizarRetoDiario() {
+    const fecha = fechaLocalReto();
+    document.getElementById("dailyDateLabel").textContent = fecha;
+    const guardado = progreso.retosDiarios?.[fecha];
+    document.getElementById("dailyChallengeStatus").textContent = guardado?.completado
+        ? `¡Reto superado! Récord de hoy: ${guardado.mejor} puntos. Se renueva mañana.`
+        : "Completa 8 servicios en un turno para ganar +150 monedas y 100 XP.";
+}
+
+function tonoArcade(tipo = "ok") {
+    if (!sonidoActivo) return;
+    try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        contextoSonido ||= new AudioContextClass();
+        if (contextoSonido.state === "suspended") contextoSonido.resume();
+        const oscilador = contextoSonido.createOscillator();
+        const volumen = contextoSonido.createGain();
+        const ahora = contextoSonido.currentTime;
+        const tonos = { select: [520, 760], assign: [310, 560], complete: [660, 990], expire: [270, 140], coin: [820, 1180] }[tipo] || [440, 660];
+        oscilador.type = "square";
+        oscilador.frequency.setValueAtTime(tonos[0], ahora);
+        oscilador.frequency.exponentialRampToValueAtTime(tonos[1], ahora + .1);
+        volumen.gain.setValueAtTime(.035, ahora);
+        volumen.gain.exponentialRampToValueAtTime(.001, ahora + .13);
+        oscilador.connect(volumen).connect(contextoSonido.destination);
+        oscilador.start(ahora);
+        oscilador.stop(ahora + .14);
+    } catch (_error) { /* Sonido opcional: el juego funciona sin Web Audio. */ }
+}
+
 function mostrarPantalla(nombre) {
     ui.welcome.hidden = nombre !== "welcome";
     ui.prepare.hidden = nombre !== "prepare";
@@ -273,7 +315,8 @@ function iniciarTurno() {
     partida = {
         activa: true, pausada: false, finalizada: false,
         transcurrido: 0, restante: DURACION_TURNO,
-        puntuacion: 0, monedas: 0, reputacion: 100,
+        puntuacion: 0, monedas: 0, reputacion: 100, vidas: 5,
+        retoDiario: retoDiarioPendiente, objetivoDiario: 8,
         completados: 0, vencidos: 0, combo: 0, mejorCombo: 0,
         ultimaCompletada: -99, bonusAgradecimiento: 0,
         equipo: crearEquipoPartida(), avisos: [], siguienteAviso: 7,
@@ -281,6 +324,7 @@ function iniciarTurno() {
         ultimoPanel: 0, ultimoAvisoId: 0, lluvia: false,
         seleccionTrabajador: null, seleccionAviso: null,
     };
+    retoDiarioPendiente = false;
     mostrarPantalla("game");
     agregarAviso();
     agregarAviso();
@@ -374,6 +418,7 @@ function asignarAviso(trabajador, aviso) {
     aviso.estado = "assigned";
     aviso.trabajadorId = trabajador.id;
     aviso.destino = { x: EJES_CALLE_X[edificio.approach.columna], y: EJES_CALLE_Y[edificio.approach.fila] };
+    tonoArcade("assign");
     partida.seleccionTrabajador = null;
     partida.seleccionAviso = null;
     document.getElementById("selectionStatus").textContent = `${trabajador.nombre} va hacia ${edificio.nombre}.`;
@@ -388,6 +433,7 @@ function seleccionarTrabajador(id) {
         return;
     }
     partida.seleccionTrabajador = id;
+    tonoArcade("select");
     const aviso = partida.avisos.find((item) => item.id === partida.seleccionAviso && item.estado === "pending");
     if (aviso) { asignarAviso(trabajador, aviso); return; }
     document.getElementById("selectionStatus").textContent = `${trabajador.nombre} seleccionado. Ahora elige un aviso.`;
@@ -398,6 +444,7 @@ function seleccionarAviso(id) {
     const aviso = partida?.avisos.find((item) => item.id === id && item.estado === "pending");
     if (!aviso) return;
     partida.seleccionAviso = id;
+    tonoArcade("select");
     const trabajador = partida.equipo.find((persona) => persona.id === partida.seleccionTrabajador);
     if (trabajador) { asignarAviso(trabajador, aviso); return; }
     document.getElementById("selectionStatus").textContent = `${aviso.servicio.corto} seleccionado. Elige un trabajador libre.`;
@@ -459,6 +506,7 @@ function completarAviso(trabajador, aviso) {
     partida.ultimaCompletada = partida.transcurrido;
     partida.mejorCombo = Math.max(partida.mejorCombo, partida.combo);
     partida.completados += 1;
+    tonoArcade("complete");
     partida.puntuacion += puntos;
     partida.monedas += monedas;
     aviso.estado = "done";
@@ -485,11 +533,13 @@ function expirarAviso(aviso) {
     const penalizacion = 8 + aviso.dificultad * 2;
     partida.reputacion = Math.max(0, partida.reputacion - penalizacion);
     partida.vencidos += 1;
+    partida.vidas = Math.max(0, partida.vidas - 1);
+    tonoArcade("expire");
     partida.puntuacion = Math.max(0, partida.puntuacion - 25);
     partida.combo = 0;
     document.getElementById("selectionStatus").textContent = `Se venció un aviso en ${EDIFICIOS[aviso.edificioId].nombre}. El barrio perdió ${penalizacion}% de reputación.`;
     document.getElementById("comboStatus").textContent = "";
-    mostrarToast("Aviso vencido: la reputación del equipo bajó.");
+    mostrarToast(`Aviso vencido: perdió una vida y reputación (${partida.vidas} vidas restantes).`);
     renderizarPaneles();
     actualizarHUD();
 }
@@ -557,6 +607,7 @@ function actualizarPartida(delta) {
     });
     partida.avisos = partida.avisos.filter((aviso) => aviso.estado !== "done" && aviso.estado !== "expired" || partida.transcurrido < aviso.completadoHasta);
     if (partida.reputacion <= 0) { finalizarPartida("reputacion"); return; }
+    if (partida.vidas <= 0) { finalizarPartida("vidas"); return; }
     if (partida.restante <= 0) { finalizarPartida("tiempo"); return; }
 }
 
@@ -585,6 +636,9 @@ function actualizarHUD() {
     barra.style.background = partida.reputacion < 35 ? "#ed7069" : partida.reputacion < 65 ? "#f0b54c" : "linear-gradient(90deg,#40d39f,#9be5ad)";
     document.getElementById("workersAvailable").textContent = `${partida.equipo.filter((trabajador) => trabajador.estado === "idle").length} libres`;
     document.getElementById("requestsCount").textContent = String(partida.avisos.filter((aviso) => aviso.estado === "pending" || aviso.estado === "assigned" || aviso.estado === "working").length);
+    const vidas = document.getElementById("livesValue");
+    vidas.innerHTML = `${"♥".repeat(partida.vidas)}<span class="lost-life">${"♥".repeat(5 - partida.vidas)}</span>`;
+    vidas.setAttribute("aria-label", `${partida.vidas} de 5 vidas`);
 }
 
 function renderizarPaneles() {
@@ -903,41 +957,50 @@ function finalizarPartida(motivo) {
     partida.finalizada = true;
     partida.activa = false;
     partida.pausada = false;
-    const experiencia = partida.completados * 32 + Math.floor(partida.puntuacion / 25);
-    progreso.monedas += partida.monedas;
+    const retoSuperado = partida.retoDiario && partida.completados >= partida.objetivoDiario;
+    const experiencia = partida.completados * 32 + Math.floor(partida.puntuacion / 25) + (retoSuperado ? 100 : 0);
+    const monedasFinales = partida.monedas + (retoSuperado ? 150 : 0);
+    progreso.monedas += monedasFinales;
+    if (partida.retoDiario) {
+        progreso.retosDiarios ||= {};
+        const fecha = fechaLocalReto();
+        const previo = progreso.retosDiarios[fecha] || { completado: false, mejor: 0 };
+        progreso.retosDiarios[fecha] = { completado: previo.completado || retoSuperado, mejor: Math.max(previo.mejor || 0, partida.puntuacion) };
+    }
     progreso.xp += experiencia;
     const nuevoRecord = partida.puntuacion > progreso.record;
     progreso.record = Math.max(progreso.record, partida.puntuacion);
     guardarProgreso();
-    mostrarResultados({ motivo, experiencia, nuevoRecord });
+    actualizarRetoDiario();
+    mostrarResultados({ motivo, experiencia, monedasFinales, retoSuperado, nuevoRecord });
 }
 
 function mostrarResultados(resultado) {
     const titulo = resultado.motivo === "tiempo" ? "¡Turno terminado!" : "El barrio necesita un respiro";
-    const subtitulo = resultado.motivo === "tiempo" ? "Tu cuadrilla completó su jornada." : "La reputación llegó a cero. La próxima ronda será mejor.";
+    const subtitulo = resultado.motivo === "tiempo" ? "Tu cuadrilla completó su jornada." : resultado.motivo === "vidas" ? "Se agotaron las vidas de la cuadrilla. La próxima ronda será mejor." : "La reputación llegó a cero. La próxima ronda será mejor.";
     ui.overlayCard.innerHTML = `
         <div class="result-hero"><span class="overlay-kicker">CIERRE DE TURNO</span><h2 id="overlayTitle">${titulo}</h2><p>${subtitulo}</p><div class="result-score">${formatoMoneda(partida.puntuacion)} <small>PTS</small></div></div>
         <div class="result-grid">
             <div class="result-stat"><small>SERVICIOS</small><strong>${partida.completados}</strong></div>
             <div class="result-stat"><small>VENCIDOS</small><strong>${partida.vencidos}</strong></div>
             <div class="result-stat"><small>MEJOR RACHA</small><strong>×${partida.mejorCombo}</strong></div>
-            <div class="result-stat"><small>MONEDAS GANADAS</small><strong>+${partida.monedas} ◈</strong></div>
+            <div class="result-stat"><small>MONEDAS GANADAS</small><strong>+${resultado.monedasFinales} ◈</strong></div>
             <div class="result-stat"><small>EXPERIENCIA</small><strong>+${resultado.experiencia} XP</strong></div>
             <div class="result-stat"><small>NIVEL DE EQUIPO</small><strong>${nivelDelEquipo()}</strong></div>
         </div>
-        <div class="result-record">${resultado.nuevoRecord ? "✦ ¡Nuevo récord personal!" : `Récord personal: ${formatoMoneda(progreso.record)} puntos`}</div>
+        <div class="result-record">${resultado.nuevoRecord ? "✦ ¡Nuevo récord personal!" : `Récord personal: ${formatoMoneda(progreso.record)} puntos`}${partida.retoDiario ? (resultado.retoSuperado ? " · ¡Reto diario cumplido! +150 ◈ y +100 XP" : ` · Reto diario: ${partida.completados}/${partida.objetivoDiario} servicios`) : ""}</div>
         <div class="overlay-actions"><button type="button" class="arcade-button arcade-button-blue" data-arcade-action="again">VOLVER A JUGAR</button><button type="button" class="arcade-button arcade-button-white" data-arcade-action="home">VOLVER AL INICIO</button></div>`;
     ui.overlay.hidden = false;
     ui.overlayCard.querySelectorAll("[data-arcade-action]").forEach((button) => button.addEventListener("click", () => {
         ui.overlay.hidden = true;
-        if (button.dataset.arcadeAction === "again") abrirPreparacion();
+        if (button.dataset.arcadeAction === "again") { retoDiarioPendiente = Boolean(partida.retoDiario); abrirPreparacion(); }
         else mostrarPantalla("welcome");
     }));
 }
 
 function mostrarOverlay(tipo) {
     if (tipo === "instructions") {
-        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">GUÍA RÁPIDA</span><h2 id="overlayTitle">Coordina, prioriza, ayuda</h2></div><button type="button" class="overlay-close" data-arcade-action="close" aria-label="Cerrar">×</button></div><p>Tu equipo tiene tres minutos para resolver las urgencias que aparecen por todo el barrio.</p><div class="overlay-instructions"><div class="instruction-row"><b>1</b><span><strong>Elige una persona libre.</strong> La especialidad correcta termina el trabajo más rápido y gana más puntos.</span></div><div class="instruction-row"><b>2</b><span><strong>Asigna un aviso.</strong> Toca el aviso en el panel o arrastra al trabajador hasta el edificio en el mapa.</span></div><div class="instruction-row"><b>3</b><span><strong>Cuida el tiempo y la reputación.</strong> Los avisos vencidos bajan la reputación; si llega a cero, acaba el turno.</span></div><div class="instruction-row"><b>4</b><span><strong>Reacciona a los eventos.</strong> La lluvia y la hora pico ralentizan las rutas; las rachas y clientes agradecidos dan bonificaciones.</span></div></div><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="close">¡ENTENDIDO!</button></div>`;
+        ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">GUÍA RÁPIDA</span><h2 id="overlayTitle">Coordina, prioriza, ayuda</h2></div><button type="button" class="overlay-close" data-arcade-action="close" aria-label="Cerrar">×</button></div><p>Tu equipo tiene tres minutos para resolver las urgencias que aparecen por todo el barrio.</p><div class="overlay-instructions"><div class="instruction-row"><b>1</b><span><strong>Elige una persona libre.</strong> La especialidad correcta termina el trabajo más rápido y gana más puntos.</span></div><div class="instruction-row"><b>2</b><span><strong>Asigna un aviso.</strong> Toca el aviso o arrastra al trabajador hasta el edificio. Con teclado: 1–6 elige trabajador, ↑/↓ recorre avisos, Enter asigna y P pausa.</span></div><div class="instruction-row"><b>3</b><span><strong>Cuida vidas y reputación.</strong> Cada aviso vencido cuesta una vida y reputación; al perder las cinco vidas o toda la reputación termina el turno.</span></div><div class="instruction-row"><b>4</b><span><strong>Reacciona a los eventos.</strong> La lluvia y la hora pico ralentizan las rutas; las rachas y clientes agradecidos dan bonificaciones.</span></div><div class="instruction-row"><b>5</b><span><strong>Reto diario.</strong> Completa ocho servicios para ganar monedas y experiencia extra. Solo se guarda en este dispositivo.</span></div></div><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="close">¡ENTENDIDO!</button></div>`;
     } else {
         ui.overlayCard.innerHTML = `<div class="overlay-top"><div><span class="overlay-kicker">TURNO EN PAUSA</span><h2 id="overlayTitle">Toma aire, capitán</h2></div><button type="button" class="overlay-close" data-arcade-action="resume" aria-label="Continuar">×</button></div><p>El barrio espera. Puedes volver a coordinar, reiniciar el turno o salir al inicio.</p><div class="overlay-actions"><button class="arcade-button arcade-button-blue" type="button" data-arcade-action="resume">CONTINUAR</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="restart">REINICIAR TURNO</button><button class="arcade-button arcade-button-white" type="button" data-arcade-action="home">SALIR AL INICIO</button></div>`;
     }
@@ -962,16 +1025,33 @@ document.getElementById("instructionsButton").addEventListener("click", () => mo
 document.getElementById("backWelcome").addEventListener("click", () => mostrarPantalla("welcome"));
 document.getElementById("startShiftButton").addEventListener("click", iniciarTurno);
 document.getElementById("pauseButton").addEventListener("click", alternarPausa);
+document.getElementById("dailyChallengeButton").addEventListener("click", () => { retoDiarioPendiente = true; abrirPreparacion(); });
 ui.overlay.addEventListener("click", (evento) => { if (evento.target === ui.overlay && !partida?.pausada) ui.overlay.hidden = true; });
 document.addEventListener("keydown", (evento) => {
     if (evento.key === "Escape" && partida?.activa && !partida.pausada) alternarPausa();
+    if ((evento.key === "p" || evento.key === "P") && partida?.activa && !partida.pausada) alternarPausa();
     if (evento.key === "Escape" && ui.overlay.hidden === false && !partida?.pausada) ui.overlay.hidden = true;
+    if (!partida?.activa || partida.pausada || ui.overlay.hidden === false) return;
+    if (/^[1-6]$/.test(evento.key)) {
+        const trabajador = partida.equipo[Number(evento.key) - 1];
+        if (trabajador) seleccionarTrabajador(trabajador.id);
+    }
+    if (evento.key === "ArrowDown" || evento.key === "ArrowUp") {
+        evento.preventDefault();
+        const pendientes = partida.avisos.filter((aviso) => aviso.estado === "pending");
+        if (pendientes.length) {
+            indiceAvisoTeclado = (indiceAvisoTeclado + (evento.key === "ArrowDown" ? 1 : -1) + pendientes.length) % pendientes.length;
+            seleccionarAviso(pendientes[indiceAvisoTeclado].id);
+        }
+    }
+    if (evento.key === "Enter" && partida.seleccionAviso && partida.seleccionTrabajador) seleccionarAviso(partida.seleccionAviso);
 });
 
 window.addEventListener("resize", ajustarCanvas);
 if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(ui.canvas);
 instalarControlesMapa();
 actualizarPantallaInicio();
+actualizarRetoDiario();
 
 // El filtro CRT es opcional y se guarda solo para esta página del minijuego.
 const botonCRT = document.getElementById("crtToggleButton");
@@ -987,4 +1067,12 @@ botonCRT.addEventListener("click", () => {
     const activo = !document.body.classList.contains("crt-enabled");
     ajustarEfectoCRT(activo);
     try { localStorage.setItem(CLAVE_CRT_ARCADE, String(activo)); } catch (_error) { /* Preferencia temporal. */ }
+});
+const botonSonido = document.getElementById("soundToggleButton");
+botonSonido.addEventListener("click", () => {
+    sonidoActivo = !sonidoActivo;
+    botonSonido.setAttribute("aria-pressed", String(sonidoActivo));
+    botonSonido.setAttribute("aria-label", sonidoActivo ? "Silenciar sonido" : "Activar sonido");
+    botonSonido.querySelector("strong").textContent = sonidoActivo ? "ON" : "OFF";
+    if (sonidoActivo) tonoArcade("select");
 });
